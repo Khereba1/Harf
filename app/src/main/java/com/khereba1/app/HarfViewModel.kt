@@ -213,12 +213,16 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     fun addText(text: String) {
         val p = project ?: return
         val id = p.nextId
+        // Readable by default: white on photos and dark backgrounds, black on light blank canvases.
+        val luminance = (0.299f * Color.red(p.bgColor) + 0.587f * Color.green(p.bgColor) + 0.114f * Color.blue(p.bgColor)) / 255f
+        val defaultColor = if (p.hasPhoto || luminance < 0.5f) Color.WHITE else Color.BLACK
         val item = TextItem(
             id = id,
             text = text,
             cx = p.docW / 2f,
             cy = p.docH / 2f,
             size = p.docW * 0.09f,
+            color = defaultColor,
         )
         pushUndo(p)
         coalesceKey = null

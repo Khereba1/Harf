@@ -30,7 +30,7 @@ data class TextItem(
     val strokeOn: Boolean = false,
     val strokeColor: Int = Color.BLACK,
     val strokeRel: Float = 0.06f,
-    val shadowOn: Boolean = true,
+    val shadowOn: Boolean = false,
     val shadowColor: Int = 0xB3000000.toInt(),
     val shadowBlur: Float = 0.06f,
     val shadowDx: Float = 0.03f,
