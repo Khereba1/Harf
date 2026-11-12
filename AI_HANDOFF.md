@@ -30,7 +30,7 @@ You cannot compile: be careful and conservative. A mistake shows up only as a fa
 - Panels.kt: SubTabs, Font/Color/Layout/Outline/Shadow/Box panels (generic over Layer), ShapeAdd/ShapeFill, Emoji, Layers panels. Dialogs.kt: color picker, text, export, blank canvas, settings. StartScreen.kt, Theme.kt.
 Document coordinates = pixels of the photo (or of the blank canvas). Editing goes through `vm.editItem(key, fresh) { it.copy(...) }`.
 
-## Roadmap (phase 1 and edit1 are done)
+## Roadmap (phase 1 and edit2 are done)
 edit2: extra image layers (from gallery) and freehand drawing (pen/eraser as a layer).
 edit3: saved-projects list with thumbnails, background tool (color / gradient / photo adjustments).
 edit4: text gradient / texture fill, curved text, letter spacing, filters.
@@ -40,7 +40,7 @@ Do NOT copy any code, assets, names or data formats from other apps (this projec
 ## REQUIRED answer format (the owner has only a phone + Termux)
 1. Briefly say what you changed and why (plain language; the owner writes Egyptian Arabic mixed with English terms, reply in the same).
 2. Deliver ONE zip containing only the changed/new files, complete (never snippets or diffs), with paths relative to the project root.
-   Name it `editN.zip` (edit1, edit2, ...). If you cannot create a zip, give each file in full in its own code block with its path, and say so.
+   Name it `editN.zip` (edit2, edit2, ...). If you cannot create a zip, give each file in full in its own code block with its path, and say so.
 3. Raise `versionCode` (+1) and `versionName` in `app/build.gradle.kts` for every functional change, and include that file.
 4. Give the install command, ready to copy, with the real folder name:
    `cd ~/harf && unzip -o "$(ls -t ~/storage/downloads/editN*.zip | head -1)" -d . && git add . && git commit -m "short message" && git push`
@@ -52,3 +52,7 @@ Do NOT copy any code, assets, names or data formats from other apps (this projec
 The stable signing key lives in GitHub Secrets (KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD).
 Never print, commit or ask for them, and never ask for the backup folder.
 `bash share_zip.sh` builds a clean `<folder>-for-AI.zip` (no keys, env files, build output or APKs) for sharing.
+
+
+## edit2 (design pass)
+Always-dark theme (Theme.kt), stroke vector icons in res/drawable/ic_*.xml, shared components in Ui.kt (HIcon, IconAction, ToolItem, SectionLabel), floating action pill over canvas, rounded bottom sheet with icon tool bar, underline SubTabs, restyled dialogs/start screen. versionCode 4 / 1.3.

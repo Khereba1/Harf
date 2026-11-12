@@ -3,6 +3,7 @@ package com.khereba1.app
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -14,22 +15,23 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -99,22 +101,33 @@ fun EditorScreen(vm: HarfViewModel) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = { showClose = true }) { Text(stringResource(R.string.close)) }
+            IconAction(R.drawable.ic_close, stringResource(R.string.close), { showClose = true })
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { vm.undo() }, enabled = vm.undoDepth > 0) { Text(stringResource(R.string.undo)) }
-            TextButton(onClick = { vm.redo() }, enabled = vm.redoDepth > 0) { Text(stringResource(R.string.redo)) }
-            Button(onClick = { showExport = true }) { Text(stringResource(R.string.save)) }
+            IconAction(R.drawable.ic_undo, stringResource(R.string.undo), { vm.undo() }, enabled = vm.undoDepth > 0)
+            IconAction(R.drawable.ic_redo, stringResource(R.string.redo), { vm.redo() }, enabled = vm.redoDepth > 0)
+            Spacer(Modifier.width(6.dp))
+            Button(
+                onClick = { showExport = true },
+                shape = RoundedCornerShape(22.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                modifier = Modifier.height(40.dp),
+            ) {
+                HIcon(R.drawable.ic_download, null, tint = MaterialTheme.colorScheme.onPrimary, size = 18.dp)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.save), fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(6.dp))
         }
 
-        // ----- canvas -----
+        // ----- canvas (actions float over its bottom edge so the canvas never resizes) -----
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(HarfCanvasBg),
         ) {
             EditorCanvas(
                 vm = vm,
@@ -127,69 +140,67 @@ fun EditorScreen(vm: HarfViewModel) {
             if (vm.busy) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
             }
-        }
-
-        // ----- bottom controls -----
-        Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.fillMaxWidth()) {
-                // actions for the selected layer
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 10.dp, start = 12.dp, end = 12.dp),
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FilledTonalButton(onClick = { textDialog = DIALOG_ADD }) { Text(stringResource(R.string.add_text)) }
+                    IconAction(
+                        R.drawable.ic_text_add, stringResource(R.string.add_text),
+                        { textDialog = DIALOG_ADD },
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
                     if (selected != null) {
                         if (selected.type == TYPE_TEXT) {
-                            OutlinedButton(onClick = { textDialog = DIALOG_EDIT }) { Text(stringResource(R.string.edit_text)) }
+                            IconAction(R.drawable.ic_edit, stringResource(R.string.edit_text), { textDialog = DIALOG_EDIT })
                         }
-                        OutlinedButton(onClick = { vm.duplicateSelected() }) { Text(stringResource(R.string.duplicate)) }
-                        OutlinedButton(onClick = { vm.toggleLock(selected.id) }) {
-                            Text(stringResource(if (selected.locked) R.string.unlock else R.string.lock))
-                        }
-                        OutlinedButton(onClick = { vm.moveSelectedForward(true) }) { Text(stringResource(R.string.bring_forward)) }
-                        OutlinedButton(onClick = { vm.moveSelectedForward(false) }) { Text(stringResource(R.string.send_backward)) }
-                        OutlinedButton(onClick = { vm.deleteSelected() }) { Text(stringResource(R.string.delete)) }
-                    }
-                }
-                // tools: tap the active one again to fold the panel away
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    val toolLabels = listOf(
-                        stringResource(R.string.tool_text),
-                        stringResource(R.string.tool_shapes),
-                        stringResource(R.string.tool_emoji),
-                        stringResource(R.string.tool_layers),
-                    )
-                    for (i in toolLabels.indices) {
-                        FilterChip(
-                            selected = tool == i && panelOpen,
-                            onClick = {
-                                if (tool == i) {
-                                    panelOpen = !panelOpen
-                                } else {
-                                    tool = i
-                                    panelOpen = true
-                                }
-                            },
-                            label = { Text(toolLabels[i]) },
+                        IconAction(R.drawable.ic_copy, stringResource(R.string.duplicate), { vm.duplicateSelected() })
+                        IconAction(
+                            if (selected.locked) R.drawable.ic_lock else R.drawable.ic_unlock,
+                            stringResource(if (selected.locked) R.string.unlock else R.string.lock),
+                            { vm.toggleLock(selected.id) },
+                            tint = if (selected.locked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         )
+                        IconAction(R.drawable.ic_up, stringResource(R.string.bring_forward), { vm.moveSelectedForward(true) })
+                        IconAction(R.drawable.ic_down, stringResource(R.string.send_backward), { vm.moveSelectedForward(false) })
+                        IconAction(R.drawable.ic_trash, stringResource(R.string.delete), { vm.deleteSelected() })
                     }
                 }
+            }
+        }
+
+        // ----- bottom sheet: panel + tools -----
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
+            Column(Modifier.fillMaxWidth()) {
                 if (panelOpen) {
                     Box(
                         modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(top = 8.dp, bottom = 4.dp)
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.outline),
+                    )
+                    Box(
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .height(215.dp)
-                            .padding(top = 6.dp),
+                            .height(214.dp)
+                            .padding(top = 4.dp),
                     ) {
                         when (tool) {
                             TOOL_TEXT -> {
@@ -277,6 +288,36 @@ fun EditorScreen(vm: HarfViewModel) {
                             }
                             else -> LayersPanel(vm, project)
                         }
+                    }
+                }
+                // tools: tap the active one again to fold the panel away
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    val toolLabels = listOf(
+                        stringResource(R.string.tool_text),
+                        stringResource(R.string.tool_shapes),
+                        stringResource(R.string.tool_emoji),
+                        stringResource(R.string.tool_layers),
+                    )
+                    val toolIcons = listOf(R.drawable.ic_text, R.drawable.ic_shapes, R.drawable.ic_emoji, R.drawable.ic_layers)
+                    for (i in toolLabels.indices) {
+                        ToolItem(
+                            res = toolIcons[i],
+                            label = toolLabels[i],
+                            selected = tool == i && panelOpen,
+                            onClick = {
+                                if (tool == i) {
+                                    panelOpen = !panelOpen
+                                } else {
+                                    tool = i
+                                    panelOpen = true
+                                }
+                            },
+                        )
                     }
                 }
             }
@@ -413,6 +454,10 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, modifier:
                 nc.save()
                 nc.translate(f.ox, f.oy)
                 nc.scale(f.scale, f.scale)
+                val sh = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                sh.color = android.graphics.Color.BLACK
+                sh.setShadowLayer(28f / f.scale, 0f, 8f / f.scale, 0xB0000000.toInt())
+                nc.drawRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat(), sh)
                 Renderer.drawDocument(nc, project, photo, selectedId, 1f / f.scale, accent)
                 nc.restore()
             }

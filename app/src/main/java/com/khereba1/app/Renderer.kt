@@ -183,12 +183,18 @@ object Renderer {
         canvas.drawRect(l, t, r, bt, line)
         val dot = Paint(Paint.ANTI_ALIAS_FLAG)
         dot.style = Paint.Style.FILL
-        dot.color = color
-        val rad = 5f * invScale
-        canvas.drawCircle(l, t, rad, dot)
-        canvas.drawCircle(r, t, rad, dot)
-        canvas.drawCircle(l, bt, rad, dot)
-        canvas.drawCircle(r, bt, rad, dot)
+        dot.color = 0xFFFFFFFF.toInt()
+        val ring = Paint(Paint.ANTI_ALIAS_FLAG)
+        ring.style = Paint.Style.STROKE
+        ring.strokeWidth = 2f * invScale
+        ring.color = color
+        val rad = 5.5f * invScale
+        val xs = floatArrayOf(l, r, l, r)
+        val ys = floatArrayOf(t, t, bt, bt)
+        for (i in 0 until 4) {
+            canvas.drawCircle(xs[i], ys[i], rad, dot)
+            canvas.drawCircle(xs[i], ys[i], rad, ring)
+        }
         canvas.restoreToCount(saved)
     }
 

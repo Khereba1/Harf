@@ -4,7 +4,14 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +24,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +50,11 @@ fun StartScreen(vm: HarfViewModel, onLanguage: (String) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF1B1410), MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.background),
+                ),
+            )
             .padding(28.dp),
     ) {
         Column(
@@ -51,18 +62,27 @@ fun StartScreen(vm: HarfViewModel, onLanguage: (String) -> Unit) {
                 .align(Alignment.Center)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = "حرف",
-                fontSize = 84.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Box(
+                modifier = Modifier
+                    .size(112.dp)
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFFFF8A5B), Color(0xFFC8442B)))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "ح",
+                    fontSize = 72.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = "Harf",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
@@ -71,23 +91,40 @@ fun StartScreen(vm: HarfViewModel, onLanguage: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
             Button(
                 onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 enabled = !vm.busy,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.pick_photo)) }
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            ) {
+                HIcon(R.drawable.ic_image, null, tint = MaterialTheme.colorScheme.onPrimary)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.pick_photo), fontWeight = FontWeight.SemiBold)
+            }
             OutlinedButton(
                 onClick = { showBlank = true },
                 enabled = !vm.busy,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.blank_canvas)) }
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            ) {
+                HIcon(R.drawable.ic_canvas, null)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.blank_canvas))
+            }
             if (vm.busy) CircularProgressIndicator()
         }
-        TextButton(
+        IconAction(
+            res = R.drawable.ic_settings,
+            desc = stringResource(R.string.settings),
             onClick = { showSettings = true },
             modifier = Modifier.align(Alignment.BottomCenter),
-        ) { Text(stringResource(R.string.settings)) }
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 
     if (showBlank) {

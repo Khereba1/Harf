@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -117,8 +118,9 @@ fun FontPanel(vm: HarfViewModel, item: Layer) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
+                        .height(58.dp)
                         .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .border(
                             width = if (selected) 2.dp else 1.dp,
                             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
@@ -323,21 +325,36 @@ fun BoxPanel(vm: HarfViewModel, item: Layer) {
 }
 
 @Composable
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 fun SubTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 6.dp),
     ) {
         for (i in labels.indices) {
-            FilterChip(
-                selected = selected == i,
-                onClick = { onSelect(i) },
-                label = { Text(labels[i]) },
-            )
+            val on = selected == i
+            Column(
+                modifier = Modifier
+                    .clickable { onSelect(i) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = labels[i],
+                    fontSize = 14.sp,
+                    fontWeight = if (on) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal,
+                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Box(
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .width(22.dp)
+                        .height(2.dp)
+                        .clip(RoundedCornerShape(1.dp))
+                        .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent),
+                )
+            }
         }
     }
 }
@@ -435,14 +452,14 @@ fun EmojiPanel(vm: HarfViewModel) {
 }
 
 @Composable
-private fun MiniButton(label: String, onClick: () -> Unit) {
+private fun MiniButton(res: Int, desc: String?, tint: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(38.dp)
+            .size(40.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 16.sp)
+        HIcon(res, desc, tint = tint, size = 20.dp)
     }
 }
 
@@ -476,19 +493,31 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                         .padding(start = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    HIcon(
+                        if (layer.type == TYPE_SHAPE) R.drawable.ic_shapes else R.drawable.ic_text,
+                        null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 18.dp,
+                    )
                     Text(
                         text = label,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (layer.visible) 1f else 0.45f),
                     )
-                    MiniButton("▲") { vm.moveLayer(layer.id, true) }
-                    MiniButton("▼") { vm.moveLayer(layer.id, false) }
-                    MiniButton(if (layer.visible) "👁️" else "–") { vm.toggleVisible(layer.id) }
-                    MiniButton(if (layer.locked) "🔒" else "🔓") { vm.toggleLock(layer.id) }
-                    MiniButton("✕") { vm.deleteLayer(layer.id) }
+                    val dim = MaterialTheme.colorScheme.onSurfaceVariant
+                    val acc = MaterialTheme.colorScheme.primary
+                    MiniButton(R.drawable.ic_up, stringResource(R.string.bring_forward), dim) { vm.moveLayer(layer.id, true) }
+                    MiniButton(R.drawable.ic_down, stringResource(R.string.send_backward), dim) { vm.moveLayer(layer.id, false) }
+                    MiniButton(if (layer.visible) R.drawable.ic_eye else R.drawable.ic_eye_off, null, if (layer.visible) dim else acc) { vm.toggleVisible(layer.id) }
+                    MiniButton(
+                        if (layer.locked) R.drawable.ic_lock else R.drawable.ic_unlock,
+                        stringResource(if (layer.locked) R.string.unlock else R.string.lock),
+                        if (layer.locked) acc else dim,
+                    ) { vm.toggleLock(layer.id) }
+                    MiniButton(R.drawable.ic_trash, stringResource(R.string.delete), dim) { vm.deleteLayer(layer.id) }
                 }
             }
         }

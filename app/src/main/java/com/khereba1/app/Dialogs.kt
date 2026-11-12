@@ -1,6 +1,7 @@
 package com.khereba1.app
 
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -62,8 +65,9 @@ private fun CardDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            tonalElevation = 6.dp,
+            tonalElevation = 0.dp,
             color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             content()
         }
@@ -87,6 +91,11 @@ fun LabeledSlider(
             value = value.coerceIn(range.start, range.endInclusive),
             onValueChange = onChange,
             valueRange = range,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.outline,
+            ),
         )
     }
 }
@@ -107,7 +116,7 @@ fun ColorRow(selected: Int, onPick: (Int) -> Unit) {
             val isSelected = c == selected
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
                     .background(Color(c))
                     .border(
@@ -118,8 +127,23 @@ fun ColorRow(selected: Int, onPick: (Int) -> Unit) {
                     .clickable { onPick(c) },
             )
         }
-        OutlinedButton(onClick = { showPicker = true }) {
-            Text(stringResource(R.string.custom_color))
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.sweepGradient(
+                        listOf(
+                            Color(0xFFFF3B30), Color(0xFFFFCC00), Color(0xFF34C759),
+                            Color(0xFF00C7BE), Color(0xFF0A84FF), Color(0xFFBF5AF2), Color(0xFFFF3B30),
+                        ),
+                    ),
+                )
+                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                .clickable { showPicker = true },
+            contentAlignment = Alignment.Center,
+        ) {
+            HIcon(R.drawable.ic_plus, stringResource(R.string.custom_color), tint = Color.White, size = 18.dp)
         }
     }
     if (showPicker) {
@@ -189,6 +213,8 @@ fun TextDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
         }
     }
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -218,6 +244,8 @@ fun TextDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
 @Composable
 fun ConfirmDialog(title: String, message: String, confirmLabel: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(message) },
