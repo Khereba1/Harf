@@ -35,6 +35,15 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.lazy.items
 import kotlin.math.roundToInt
 
 private fun pct(v: Float): String = (v * 100f).roundToInt().toString() + "%"
@@ -66,7 +75,7 @@ private fun FontSample(fontKey: String, color: Int, modifier: Modifier) {
 
 @Composable
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-fun FontPanel(vm: HarfViewModel, item: TextItem) {
+fun FontPanel(vm: HarfViewModel, item: Layer) {
     val fonts = remember(vm.fontsVersion) { FontStore.allFonts() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importFont(uri)
@@ -134,7 +143,7 @@ fun FontPanel(vm: HarfViewModel, item: TextItem) {
 }
 
 @Composable
-fun ColorPanel(vm: HarfViewModel, item: TextItem) {
+fun ColorPanel(vm: HarfViewModel, item: Layer, label: String) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -142,14 +151,15 @@ fun ColorPanel(vm: HarfViewModel, item: TextItem) {
             .padding(horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(stringResource(R.string.text_color), style = MaterialTheme.typography.titleSmall)
+        Text(label, style = MaterialTheme.typography.titleSmall)
         ColorRow(selected = item.color, onPick = { c -> vm.editItem("color", false) { it.copy(color = c) } })
     }
 }
 
 @Composable
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-fun LayoutPanel(vm: HarfViewModel, item: TextItem, docW: Int) {
+fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
+    val isShape = item.type == TYPE_SHAPE
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -159,9 +169,25 @@ fun LayoutPanel(vm: HarfViewModel, item: TextItem, docW: Int) {
         LabeledSlider(
             label = stringResource(R.string.size_label),
             value = item.size / docW,
-            range = 0.02f..0.4f,
+            range = if (isShape) 0.03f..1.2f else 0.02f..0.4f,
             valueText = pct(item.size / docW),
         ) { v -> vm.editItem("size", false) { it.copy(size = v * docW) } }
+        if (isShape) {
+            LabeledSlider(
+                label = stringResource(R.string.aspect_label),
+                value = item.aspect,
+                range = 0.15f..3f,
+                valueText = pct(item.aspect),
+            ) { v -> vm.editItem("aspect", false) { it.copy(aspect = v) } }
+            if (Shapes.usesCorner(item.shapeKind)) {
+                LabeledSlider(
+                    label = stringResource(R.string.corner_radius),
+                    value = item.corner,
+                    range = 0f..0.5f,
+                    valueText = pct(item.corner),
+                ) { v -> vm.editItem("corner", false) { it.copy(corner = v) } }
+            }
+        }
         LabeledSlider(
             label = stringResource(R.string.rotation_label),
             value = item.rotation,
@@ -174,38 +200,40 @@ fun LayoutPanel(vm: HarfViewModel, item: TextItem, docW: Int) {
             range = 0f..1f,
             valueText = pct(item.opacity),
         ) { v -> vm.editItem("opacity", false) { it.copy(opacity = v) } }
-        LabeledSlider(
-            label = stringResource(R.string.line_spacing),
-            value = item.lineSpacing,
-            range = 0.7f..2f,
-            valueText = pct(item.lineSpacing),
-        ) { v -> vm.editItem("lineSpacing", false) { it.copy(lineSpacing = v) } }
-        Text(stringResource(R.string.alignment), style = MaterialTheme.typography.bodyMedium)
-        Row(
-            modifier = Modifier.padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(
-                selected = item.align == ALIGN_START,
-                onClick = { vm.editItem("align", true) { it.copy(align = ALIGN_START) } },
-                label = { Text(stringResource(R.string.align_start)) },
-            )
-            FilterChip(
-                selected = item.align == ALIGN_CENTER,
-                onClick = { vm.editItem("align", true) { it.copy(align = ALIGN_CENTER) } },
-                label = { Text(stringResource(R.string.align_center)) },
-            )
-            FilterChip(
-                selected = item.align == ALIGN_END,
-                onClick = { vm.editItem("align", true) { it.copy(align = ALIGN_END) } },
-                label = { Text(stringResource(R.string.align_end)) },
-            )
+        if (!isShape) {
+            LabeledSlider(
+                label = stringResource(R.string.line_spacing),
+                value = item.lineSpacing,
+                range = 0.7f..2f,
+                valueText = pct(item.lineSpacing),
+            ) { v -> vm.editItem("lineSpacing", false) { it.copy(lineSpacing = v) } }
+            Text(stringResource(R.string.alignment), style = MaterialTheme.typography.bodyMedium)
+            Row(
+                modifier = Modifier.padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = item.align == ALIGN_START,
+                    onClick = { vm.editItem("align", true) { it.copy(align = ALIGN_START) } },
+                    label = { Text(stringResource(R.string.align_start)) },
+                )
+                FilterChip(
+                    selected = item.align == ALIGN_CENTER,
+                    onClick = { vm.editItem("align", true) { it.copy(align = ALIGN_CENTER) } },
+                    label = { Text(stringResource(R.string.align_center)) },
+                )
+                FilterChip(
+                    selected = item.align == ALIGN_END,
+                    onClick = { vm.editItem("align", true) { it.copy(align = ALIGN_END) } },
+                    label = { Text(stringResource(R.string.align_end)) },
+                )
+            }
         }
     }
 }
 
 @Composable
-fun OutlinePanel(vm: HarfViewModel, item: TextItem) {
+fun OutlinePanel(vm: HarfViewModel, item: Layer) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -229,7 +257,7 @@ fun OutlinePanel(vm: HarfViewModel, item: TextItem) {
 }
 
 @Composable
-fun ShadowPanel(vm: HarfViewModel, item: TextItem) {
+fun ShadowPanel(vm: HarfViewModel, item: Layer) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -265,7 +293,7 @@ fun ShadowPanel(vm: HarfViewModel, item: TextItem) {
 }
 
 @Composable
-fun BoxPanel(vm: HarfViewModel, item: TextItem) {
+fun BoxPanel(vm: HarfViewModel, item: Layer) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -290,6 +318,179 @@ fun BoxPanel(vm: HarfViewModel, item: TextItem) {
             ) { v -> vm.editItem("bgRadius", false) { it.copy(bgRadius = v) } }
             Text(stringResource(R.string.color_label), style = MaterialTheme.typography.bodyMedium)
             ColorRow(selected = item.bgColor, onPick = { c -> vm.editItem("bgColor", false) { it.copy(bgColor = c) } })
+        }
+    }
+}
+
+@Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+fun SubTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (i in labels.indices) {
+            FilterChip(
+                selected = selected == i,
+                onClick = { onSelect(i) },
+                label = { Text(labels[i]) },
+            )
+        }
+    }
+}
+
+/** Tap a shape to add it to the canvas. */
+@Composable
+fun ShapeAddPanel(vm: HarfViewModel) {
+    val tint = MaterialTheme.colorScheme.onSurface.toArgb()
+    val kinds = remember { (0 until Shapes.COUNT).toList() }
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(60.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(kinds) { kind ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .clickable { vm.addShape(kind) },
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
+                ) {
+                    drawIntoCanvas { c ->
+                        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                        paint.color = tint
+                        val path = Shapes.build(kind, size.width, size.height, 0.2f)
+                        c.nativeCanvas.drawPath(path, paint)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShapeFillPanel(vm: HarfViewModel, item: Layer) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+    ) {
+        SwitchRow(stringResource(R.string.fill_label), item.fillOn) { on ->
+            vm.editItem("fillOn", true) { it.copy(fillOn = on) }
+        }
+        if (item.fillOn) {
+            Text(stringResource(R.string.fill_color), style = MaterialTheme.typography.bodyMedium)
+            ColorRow(selected = item.color, onPick = { c -> vm.editItem("color", false) { it.copy(color = c) } })
+        }
+    }
+}
+
+private val EMOJIS: List<String> = listOf(
+    "😀", "😁", "😂", "🤣", "😊", "😍", "😘", "😎", "🤩", "🥳", "😜", "🤪",
+    "🤔", "😴", "😭", "😡", "🥶", "🤯", "😱", "🙄", "😇", "🤗", "🤫", "🥰",
+    "😈", "👻", "💀", "👽", "🤖", "💩", "🙈", "🙉", "🙊", "👍", "👎", "👏",
+    "🙌", "💪", "🙏", "✌️", "🤞", "👌", "🤟", "❤️", "🧡", "💛", "💚", "💙",
+    "💜", "🖤", "🤍", "💔", "💯", "🔥", "✨", "⭐", "🌟", "💥", "🎉", "🎊",
+    "🎁", "🎈", "🏆", "🥇", "⚽", "🏀", "🎮", "🎵", "🎶", "🎤", "📷", "💡",
+    "📌", "✅", "❌", "⚠️", "❓", "❗", "➕", "🌈", "☀️", "🌙", "⚡", "❄️",
+    "🌸", "🌹", "🌴", "🍕", "🍔", "🍟", "🍩", "🍦", "☕", "🍺", "🚗", "✈️",
+    "🚀", "🏠", "🌍", "🐶", "🐱", "🐼", "🦁", "🐯", "🦄", "🐢", "🦋", "🌻",
+)
+
+/** Tap an emoji to add it (emoji are text layers, so they can be moved, resized and rotated like text). */
+@Composable
+fun EmojiPanel(vm: HarfViewModel) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(48.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp),
+    ) {
+        items(EMOJIS) { e ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clickable { vm.addEmoji(e) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(e, fontSize = 28.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniButton(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontSize = 16.sp)
+    }
+}
+
+/** All layers, top-most first: select, reorder, hide, lock, delete. */
+@Composable
+fun LayersPanel(vm: HarfViewModel, project: Project) {
+    val shapeLabel = stringResource(R.string.layer_shape)
+    val rows = remember(project.items) { project.items.reversed() }
+    if (rows.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = stringResource(R.string.layers_empty),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+        ) {
+            items(rows, key = { it.id }) { layer ->
+                val isSelected = layer.id == vm.selectedId
+                val label = if (layer.type == TYPE_SHAPE) shapeLabel else layer.text.replace('\n', ' ')
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                        .clickable { vm.select(layer.id) }
+                        .padding(start = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (layer.visible) 1f else 0.45f),
+                    )
+                    MiniButton("▲") { vm.moveLayer(layer.id, true) }
+                    MiniButton("▼") { vm.moveLayer(layer.id, false) }
+                    MiniButton(if (layer.visible) "👁️" else "–") { vm.toggleVisible(layer.id) }
+                    MiniButton(if (layer.locked) "🔒" else "🔓") { vm.toggleLock(layer.id) }
+                    MiniButton("✕") { vm.deleteLayer(layer.id) }
+                }
+            }
         }
     }
 }

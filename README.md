@@ -10,7 +10,8 @@ A free, open-source text-on-photo editor for Android. It works fully offline: no
 - Fonts: Arabic and Latin (open-licensed fonts bundled at build time, plus your own .ttf/.otf)
 - Color (palette + custom picker), bold / italic, alignment, line spacing, opacity
 - Outline, shadow and background box for every text
-- Layers order, duplicate, delete, unlimited undo/redo
+- 20 vector shapes (fill, outline, shadow) and an emoji picker
+- Layers panel: reorder, hide, lock, duplicate, delete; unlimited undo/redo
 - Autosave of the current project
 - Export PNG or JPG to `Pictures/Harf`, or share directly
 - Arabic and English interface (RTL supported)

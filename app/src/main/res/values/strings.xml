@@ -35,7 +35,7 @@
     <string name="delete">Delete</string>
     <string name="bring_forward">Forward</string>
     <string name="send_backward">Back</string>
-    <string name="hint_empty">Tap + Text to add text. Drag to move it, pinch to resize, twist with two fingers to rotate, double tap to edit.</string>
+    <string name="hint_empty">Tap + Text to add text, or open Shapes and Emoji. Drag to move, pinch to resize, twist with two fingers to rotate, double tap to edit text.</string>
     <string name="text_dialog_add">Add text</string>
     <string name="text_dialog_edit">Edit text</string>
     <string name="text_hint">Text</string>
@@ -85,4 +85,17 @@
     <string name="close_confirm_title">Close this project?</string>
     <string name="close_confirm_msg">Anything you did not save to the gallery will be lost.</string>
     <string name="discard">Close without saving</string>
+    <string name="tool_text">Text</string>
+    <string name="tool_shapes">Shapes</string>
+    <string name="tool_emoji">Emoji</string>
+    <string name="tool_layers">Layers</string>
+    <string name="tab_add">Add</string>
+    <string name="tab_fill">Fill</string>
+    <string name="lock">Lock</string>
+    <string name="unlock">Unlock</string>
+    <string name="layers_empty">No layers yet.</string>
+    <string name="layer_shape">Shape</string>
+    <string name="fill_label">Fill</string>
+    <string name="fill_color">Fill color</string>
+    <string name="aspect_label">Height ratio</string>
 </resources>

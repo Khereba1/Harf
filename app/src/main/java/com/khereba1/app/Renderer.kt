@@ -24,6 +24,9 @@ class BuiltText(
     val boxH: Float,
 )
 
+/** Width and height of a layer's (unrotated) box in document pixels. */
+class LayerBox(val w: Float, val h: Float)
+
 /** Maps document pixels to view pixels (uniform scale + centering offset). */
 class Fit(val scale: Float, val ox: Float, val oy: Float)
 
@@ -40,7 +43,7 @@ fun fitDoc(viewW: Float, viewH: Float, docW: Int, docH: Int): Fit {
  */
 object Renderer {
 
-    fun build(item: TextItem, docW: Int): BuiltText {
+    fun build(item: Layer, docW: Int): BuiltText {
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         paint.textSize = max(4f, item.size)
         paint.typeface = FontStore.typeface(item.fontKey, item.bold, item.italic)
@@ -63,7 +66,58 @@ object Renderer {
         return BuiltText(layout, paint, pad, boxW, boxH)
     }
 
-    private fun drawItem(canvas: Canvas, item: TextItem, docW: Int) {
+    fun boxOf(item: Layer, docW: Int): LayerBox {
+        if (item.type == TYPE_SHAPE) return LayerBox(item.size, item.size * item.aspect)
+        val b = build(item, docW)
+        return LayerBox(b.boxW, b.boxH)
+    }
+
+    private fun drawLayer(canvas: Canvas, item: Layer, docW: Int) {
+        if (!item.visible) return
+        if (item.type == TYPE_SHAPE) drawShape(canvas, item) else drawText(canvas, item, docW)
+    }
+
+    private fun drawShape(canvas: Canvas, item: Layer) {
+        val w = item.size
+        val h = item.size * item.aspect
+        val path = Shapes.build(item.shapeKind, w, h, item.corner)
+        val saved = canvas.save()
+        canvas.translate(item.cx, item.cy)
+        canvas.rotate(item.rotation)
+        canvas.translate(-w / 2f, -h / 2f)
+
+        val alpha = (item.opacity.coerceIn(0f, 1f) * 255f).roundToInt()
+        var layerSaved = -1
+        if (alpha < 255) {
+            val bleed = max(w, h) * 0.4f
+            layerSaved = canvas.saveLayerAlpha(-bleed, -bleed, w + bleed, h + bleed, alpha)
+        }
+        val shadowRadius = max(0.5f, item.shadowBlur * item.size)
+        val shadowDx = item.shadowDx * item.size
+        val shadowDy = item.shadowDy * item.size
+        val hasStroke = item.strokeOn && item.strokeRel > 0f
+
+        if (item.fillOn) {
+            val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+            fill.style = Paint.Style.FILL
+            fill.color = item.color
+            if (item.shadowOn) fill.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor)
+            canvas.drawPath(path, fill)
+        }
+        if (hasStroke) {
+            val line = Paint(Paint.ANTI_ALIAS_FLAG)
+            line.style = Paint.Style.STROKE
+            line.strokeJoin = Paint.Join.ROUND
+            line.strokeWidth = item.strokeRel * item.size
+            line.color = item.strokeColor
+            if (item.shadowOn && !item.fillOn) line.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor)
+            canvas.drawPath(path, line)
+        }
+        if (layerSaved >= 0) canvas.restoreToCount(layerSaved)
+        canvas.restoreToCount(saved)
+    }
+
+    private fun drawText(canvas: Canvas, item: Layer, docW: Int) {
         val b = build(item, docW)
         val saved = canvas.save()
         canvas.translate(item.cx, item.cy)
@@ -113,8 +167,8 @@ object Renderer {
         canvas.restoreToCount(saved)
     }
 
-    private fun drawSelection(canvas: Canvas, item: TextItem, docW: Int, invScale: Float, color: Int) {
-        val b = build(item, docW)
+    private fun drawSelection(canvas: Canvas, item: Layer, docW: Int, invScale: Float, color: Int) {
+        val b = boxOf(item, docW)
         val saved = canvas.save()
         canvas.translate(item.cx, item.cy)
         canvas.rotate(item.rotation)
@@ -122,10 +176,10 @@ object Renderer {
         line.style = Paint.Style.STROKE
         line.strokeWidth = 2f * invScale
         line.color = color
-        val l = -b.boxW / 2f
-        val t = -b.boxH / 2f
-        val r = b.boxW / 2f
-        val bt = b.boxH / 2f
+        val l = -b.w / 2f
+        val t = -b.h / 2f
+        val r = b.w / 2f
+        val bt = b.h / 2f
         canvas.drawRect(l, t, r, bt, line)
         val dot = Paint(Paint.ANTI_ALIAS_FLAG)
         dot.style = Paint.Style.FILL
@@ -154,11 +208,11 @@ object Renderer {
             val pp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
             canvas.drawBitmap(photo, null, RectF(0f, 0f, p.docW.toFloat(), p.docH.toFloat()), pp)
         }
-        for (item in p.items) drawItem(canvas, item, p.docW)
+        for (item in p.items) drawLayer(canvas, item, p.docW)
         canvas.restoreToCount(saved)
         if (selectedId != null) {
             for (item in p.items) {
-                if (item.id == selectedId) drawSelection(canvas, item, p.docW, invScale, selectionColor)
+                if (item.id == selectedId && item.visible) drawSelection(canvas, item, p.docW, invScale, selectionColor)
             }
         }
     }
@@ -167,7 +221,8 @@ object Renderer {
     fun hitTest(p: Project, x: Float, y: Float, tolerance: Float): Long? {
         for (i in p.items.indices.reversed()) {
             val item = p.items[i]
-            val b = build(item, p.docW)
+            if (!item.visible || item.locked) continue
+            val b = boxOf(item, p.docW)
             val dx = x - item.cx
             val dy = y - item.cy
             val a = Math.toRadians(-item.rotation.toDouble())
@@ -175,7 +230,7 @@ object Renderer {
             val s = sin(a)
             val lx = (dx * c - dy * s).toFloat()
             val ly = (dx * s + dy * c).toFloat()
-            if (abs(lx) <= b.boxW / 2f + tolerance && abs(ly) <= b.boxH / 2f + tolerance) return item.id
+            if (abs(lx) <= b.w / 2f + tolerance && abs(ly) <= b.h / 2f + tolerance) return item.id
         }
         return null
     }

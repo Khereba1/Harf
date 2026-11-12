@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,12 +51,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-private const val TAB_FONT = 0
-private const val TAB_COLOR = 1
-private const val TAB_LAYOUT = 2
-private const val TAB_OUTLINE = 3
-private const val TAB_SHADOW = 4
-private const val TAB_BOX = 5
+private const val TOOL_TEXT = 0
+private const val TOOL_SHAPES = 1
+private const val TOOL_EMOJI = 2
+private const val TOOL_LAYERS = 3
 
 private const val DIALOG_NONE = 0
 private const val DIALOG_ADD = 1
@@ -66,11 +65,30 @@ private const val DIALOG_EDIT = 2
 fun EditorScreen(vm: HarfViewModel) {
     val project = vm.project ?: return
     val context = LocalContext.current
-    var tab by remember { mutableIntStateOf(TAB_FONT) }
+    var tool by remember { mutableIntStateOf(TOOL_TEXT) }
+    var panelOpen by remember { mutableStateOf(true) }
+    var textTab by remember { mutableIntStateOf(0) }
+    var shapeTab by remember { mutableIntStateOf(0) }
+    var emojiTab by remember { mutableIntStateOf(0) }
     var textDialog by remember { mutableIntStateOf(DIALOG_NONE) }
     var showExport by remember { mutableStateOf(false) }
     var showClose by remember { mutableStateOf(false) }
-    val selected: TextItem? = project.items.firstOrNull { it.id == vm.selectedId }
+    val selectedId = vm.selectedId
+    val selected: Layer? = project.items.firstOrNull { it.id == selectedId }
+
+    // Selecting a layer on the canvas opens the matching tool (the Layers tool stays as it is).
+    LaunchedEffect(selectedId) {
+        val s = project.items.firstOrNull { it.id == selectedId }
+        if (textDialog == DIALOG_EDIT && (s == null || s.type != TYPE_TEXT)) textDialog = DIALOG_NONE
+        if (s != null) {
+            tool = when {
+                tool == TOOL_LAYERS -> TOOL_LAYERS
+                s.type == TYPE_SHAPE -> TOOL_SHAPES
+                tool == TOOL_EMOJI -> TOOL_EMOJI
+                else -> TOOL_TEXT
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -100,7 +118,10 @@ fun EditorScreen(vm: HarfViewModel) {
         ) {
             EditorCanvas(
                 vm = vm,
-                onEditRequest = { textDialog = DIALOG_EDIT },
+                onEditRequest = {
+                    val sel = vm.project?.items?.firstOrNull { it.id == vm.selectedId }
+                    if (sel != null && sel.type == TYPE_TEXT) textDialog = DIALOG_EDIT
+                },
                 modifier = Modifier.fillMaxSize(),
             )
             if (vm.busy) {
@@ -111,73 +132,150 @@ fun EditorScreen(vm: HarfViewModel) {
         // ----- bottom controls -----
         Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth()) {
+                // actions for the selected layer
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     FilledTonalButton(onClick = { textDialog = DIALOG_ADD }) { Text(stringResource(R.string.add_text)) }
                     if (selected != null) {
-                        OutlinedButton(onClick = { textDialog = DIALOG_EDIT }) { Text(stringResource(R.string.edit_text)) }
+                        if (selected.type == TYPE_TEXT) {
+                            OutlinedButton(onClick = { textDialog = DIALOG_EDIT }) { Text(stringResource(R.string.edit_text)) }
+                        }
                         OutlinedButton(onClick = { vm.duplicateSelected() }) { Text(stringResource(R.string.duplicate)) }
+                        OutlinedButton(onClick = { vm.toggleLock(selected.id) }) {
+                            Text(stringResource(if (selected.locked) R.string.unlock else R.string.lock))
+                        }
                         OutlinedButton(onClick = { vm.moveSelectedForward(true) }) { Text(stringResource(R.string.bring_forward)) }
                         OutlinedButton(onClick = { vm.moveSelectedForward(false) }) { Text(stringResource(R.string.send_backward)) }
                         OutlinedButton(onClick = { vm.deleteSelected() }) { Text(stringResource(R.string.delete)) }
                     }
                 }
-                // Fixed height whether or not something is selected: the canvas must never
-                // change size while a finger is down on it.
-                Column(
+                // tools: tap the active one again to fold the panel away
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(250.dp),
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (selected == null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 24.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = stringResource(R.string.hint_empty),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            FilterChip(selected = tab == TAB_FONT, onClick = { tab = TAB_FONT }, label = { Text(stringResource(R.string.tab_font)) })
-                            FilterChip(selected = tab == TAB_COLOR, onClick = { tab = TAB_COLOR }, label = { Text(stringResource(R.string.tab_color)) })
-                            FilterChip(selected = tab == TAB_LAYOUT, onClick = { tab = TAB_LAYOUT }, label = { Text(stringResource(R.string.tab_layout)) })
-                            FilterChip(selected = tab == TAB_OUTLINE, onClick = { tab = TAB_OUTLINE }, label = { Text(stringResource(R.string.tab_outline)) })
-                            FilterChip(selected = tab == TAB_SHADOW, onClick = { tab = TAB_SHADOW }, label = { Text(stringResource(R.string.tab_shadow)) })
-                            FilterChip(selected = tab == TAB_BOX, onClick = { tab = TAB_BOX }, label = { Text(stringResource(R.string.tab_box)) })
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(top = 6.dp),
-                        ) {
-                            when (tab) {
-                                TAB_FONT -> FontPanel(vm, selected)
-                                TAB_COLOR -> ColorPanel(vm, selected)
-                                TAB_LAYOUT -> LayoutPanel(vm, selected, project.docW)
-                                TAB_OUTLINE -> OutlinePanel(vm, selected)
-                                TAB_SHADOW -> ShadowPanel(vm, selected)
-                                else -> BoxPanel(vm, selected)
+                    val toolLabels = listOf(
+                        stringResource(R.string.tool_text),
+                        stringResource(R.string.tool_shapes),
+                        stringResource(R.string.tool_emoji),
+                        stringResource(R.string.tool_layers),
+                    )
+                    for (i in toolLabels.indices) {
+                        FilterChip(
+                            selected = tool == i && panelOpen,
+                            onClick = {
+                                if (tool == i) {
+                                    panelOpen = !panelOpen
+                                } else {
+                                    tool = i
+                                    panelOpen = true
+                                }
+                            },
+                            label = { Text(toolLabels[i]) },
+                        )
+                    }
+                }
+                if (panelOpen) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(215.dp)
+                            .padding(top = 6.dp),
+                    ) {
+                        when (tool) {
+                            TOOL_TEXT -> {
+                                if (selected != null && selected.type == TYPE_TEXT) {
+                                    val labels = listOf(
+                                        stringResource(R.string.tab_font),
+                                        stringResource(R.string.tab_color),
+                                        stringResource(R.string.tab_layout),
+                                        stringResource(R.string.tab_outline),
+                                        stringResource(R.string.tab_shadow),
+                                        stringResource(R.string.tab_box),
+                                    )
+                                    Column(Modifier.fillMaxSize()) {
+                                        SubTabs(labels, textTab) { textTab = it }
+                                        Spacer(Modifier.height(6.dp))
+                                        Box(Modifier.fillMaxWidth().weight(1f)) {
+                                            when (textTab) {
+                                                0 -> FontPanel(vm, selected)
+                                                1 -> ColorPanel(vm, selected, stringResource(R.string.text_color))
+                                                2 -> LayoutPanel(vm, selected, project.docW)
+                                                3 -> OutlinePanel(vm, selected)
+                                                4 -> ShadowPanel(vm, selected)
+                                                else -> BoxPanel(vm, selected)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 24.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.hint_empty),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center,
+                                        )
+                                    }
+                                }
                             }
+                            TOOL_SHAPES -> {
+                                if (selected != null && selected.type == TYPE_SHAPE) {
+                                    val labels = listOf(
+                                        stringResource(R.string.tab_add),
+                                        stringResource(R.string.tab_fill),
+                                        stringResource(R.string.tab_layout),
+                                        stringResource(R.string.tab_outline),
+                                        stringResource(R.string.tab_shadow),
+                                    )
+                                    Column(Modifier.fillMaxSize()) {
+                                        SubTabs(labels, shapeTab) { shapeTab = it }
+                                        Spacer(Modifier.height(6.dp))
+                                        Box(Modifier.fillMaxWidth().weight(1f)) {
+                                            when (shapeTab) {
+                                                0 -> ShapeAddPanel(vm)
+                                                1 -> ShapeFillPanel(vm, selected)
+                                                2 -> LayoutPanel(vm, selected, project.docW)
+                                                3 -> OutlinePanel(vm, selected)
+                                                else -> ShadowPanel(vm, selected)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    ShapeAddPanel(vm)
+                                }
+                            }
+                            TOOL_EMOJI -> {
+                                if (selected != null && selected.type == TYPE_TEXT) {
+                                    val labels = listOf(
+                                        stringResource(R.string.tab_add),
+                                        stringResource(R.string.tab_layout),
+                                    )
+                                    Column(Modifier.fillMaxSize()) {
+                                        SubTabs(labels, emojiTab) { emojiTab = it }
+                                        Spacer(Modifier.height(6.dp))
+                                        Box(Modifier.fillMaxWidth().weight(1f)) {
+                                            if (emojiTab == 0) EmojiPanel(vm) else LayoutPanel(vm, selected, project.docW)
+                                        }
+                                    }
+                                } else {
+                                    EmojiPanel(vm)
+                                }
+                            }
+                            else -> LayersPanel(vm, project)
                         }
                     }
                 }
@@ -193,11 +291,12 @@ fun EditorScreen(vm: HarfViewModel) {
             onDismiss = { textDialog = DIALOG_NONE },
             onConfirm = { t ->
                 textDialog = DIALOG_NONE
+                tool = TOOL_TEXT
                 vm.addText(t)
             },
         )
     }
-    if (textDialog == DIALOG_EDIT && selected != null) {
+    if (textDialog == DIALOG_EDIT && selected != null && selected.type == TYPE_TEXT) {
         TextDialog(
             title = stringResource(R.string.text_dialog_edit),
             initial = selected.text,

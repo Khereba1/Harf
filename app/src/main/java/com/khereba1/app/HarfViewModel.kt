@@ -216,7 +216,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         // Readable by default: white on photos and dark backgrounds, black on light blank canvases.
         val luminance = (0.299f * Color.red(p.bgColor) + 0.587f * Color.green(p.bgColor) + 0.114f * Color.blue(p.bgColor)) / 255f
         val defaultColor = if (p.hasPhoto || luminance < 0.5f) Color.WHITE else Color.BLACK
-        val item = TextItem(
+        val item = Layer(
             id = id,
             text = text,
             cx = p.docW / 2f,
@@ -231,8 +231,12 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         scheduleSave()
     }
 
-    fun editItem(key: String, fresh: Boolean, change: (TextItem) -> TextItem) {
+    fun editItem(key: String, fresh: Boolean, change: (Layer) -> Layer) {
         val id = selectedId ?: return
+        editById(id, key, fresh, change)
+    }
+
+    fun editById(id: Long, key: String, fresh: Boolean, change: (Layer) -> Layer) {
         edit(key, fresh) { p ->
             p.copy(items = p.items.map { t -> if (t.id == id) change(t) else t })
         }
@@ -241,10 +245,10 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     fun transformSelected(dx: Float, dy: Float, zoom: Float, rotationDeg: Float) {
         val id = selectedId ?: return
         edit("gesture", false) { p ->
-            val maxSize = p.docW * 0.9f
             p.copy(
                 items = p.items.map { t ->
-                    if (t.id == id) {
+                    if (t.id == id && !t.locked) {
+                        val maxSize = if (t.type == TYPE_SHAPE) p.docW * 2f else p.docW * 0.9f
                         t.copy(
                             cx = t.cx + dx,
                             cy = t.cy + dy,
@@ -286,19 +290,74 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
 
     fun moveSelectedForward(forward: Boolean) {
         val id = selectedId ?: return
+        moveLayer(id, forward)
+    }
+
+    /** forward = one step toward the top of the stack. */
+    fun moveLayer(id: Long, forward: Boolean) {
+        val cur = project ?: return
+        val i = cur.items.indexOfFirst { it.id == id }
+        val j = if (forward) i + 1 else i - 1
+        if (i < 0 || j < 0 || j >= cur.items.size) return
         edit("order", true) { p ->
-            val i = p.items.indexOfFirst { it.id == id }
-            val j = if (forward) i + 1 else i - 1
-            if (i < 0 || j < 0 || j >= p.items.size) {
-                p
-            } else {
-                val list = p.items.toMutableList()
-                val tmp = list[i]
-                list[i] = list[j]
-                list[j] = tmp
-                p.copy(items = list)
-            }
+            val list = p.items.toMutableList()
+            val tmp = list[i]
+            list[i] = list[j]
+            list[j] = tmp
+            p.copy(items = list)
         }
+    }
+
+    fun deleteLayer(id: Long) {
+        val cur = project ?: return
+        if (cur.items.none { it.id == id }) return
+        edit("delete", true) { p -> p.copy(items = p.items.filter { it.id != id }) }
+        if (selectedId == id) selectedId = null
+    }
+
+    fun toggleLock(id: Long) {
+        editById(id, "lock", true) { it.copy(locked = !it.locked) }
+    }
+
+    fun toggleVisible(id: Long) {
+        editById(id, "visible", true) { it.copy(visible = !it.visible) }
+    }
+
+    fun addShape(kind: Int) {
+        val p = project ?: return
+        val id = p.nextId
+        val layer = Layer(
+            id = id,
+            type = TYPE_SHAPE,
+            cx = p.docW / 2f,
+            cy = p.docH / 2f,
+            size = p.docW * 0.3f,
+            shapeKind = kind,
+            aspect = Shapes.defaultAspect(kind),
+            color = 0xFFE4572E.toInt(),
+        )
+        pushUndo(p)
+        coalesceKey = null
+        project = p.copy(items = p.items + layer, nextId = id + 1L)
+        selectedId = id
+        scheduleSave()
+    }
+
+    fun addEmoji(emoji: String) {
+        val p = project ?: return
+        val id = p.nextId
+        val layer = Layer(
+            id = id,
+            cx = p.docW / 2f,
+            cy = p.docH / 2f,
+            size = p.docW * 0.2f,
+            text = emoji,
+        )
+        pushUndo(p)
+        coalesceKey = null
+        project = p.copy(items = p.items + layer, nextId = id + 1L)
+        selectedId = id
+        scheduleSave()
     }
 
     fun importFont(uri: Uri) {

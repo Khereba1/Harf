@@ -8,25 +8,39 @@ const val ALIGN_START = 0
 const val ALIGN_CENTER = 1
 const val ALIGN_END = 2
 
+const val TYPE_TEXT = 0
+const val TYPE_SHAPE = 1
+
 /**
- * One text layer. All "Rel" values are relative to [size] so that pinch-resizing a text
- * scales its outline, shadow and background box with it.
- * Coordinates (cx, cy) and size are in document pixels (the pixels of the photo / canvas).
+ * One layer on the canvas: a text (emoji are texts too) or a vector shape.
+ * Coordinates (cx, cy) and [size] are in document pixels (the pixels of the photo / canvas).
+ * For text, [size] is the font size. For a shape it is the width, and the height is size * aspect.
+ * All "Rel" values are relative to [size], so pinch-resizing scales outline, shadow and box with it.
  */
-data class TextItem(
+data class Layer(
     val id: Long,
-    val text: String,
+    val type: Int = TYPE_TEXT,
     val cx: Float,
     val cy: Float,
     val size: Float,
     val rotation: Float = 0f,
+    val opacity: Float = 1f,
+    val locked: Boolean = false,
+    val visible: Boolean = true,
+    // --- text ---
+    val text: String = "",
     val fontKey: String = "sys:sans-serif",
-    val color: Int = Color.WHITE,
+    val color: Int = Color.WHITE, // text color, or the fill color of a shape
     val bold: Boolean = false,
     val italic: Boolean = false,
     val align: Int = ALIGN_CENTER,
-    val opacity: Float = 1f,
     val lineSpacing: Float = 1f,
+    // --- shape ---
+    val shapeKind: Int = 0,
+    val aspect: Float = 1f,
+    val corner: Float = 0.2f,
+    val fillOn: Boolean = true,
+    // --- outline / shadow (text and shapes) ---
     val strokeOn: Boolean = false,
     val strokeColor: Int = Color.BLACK,
     val strokeRel: Float = 0.06f,
@@ -35,39 +49,47 @@ data class TextItem(
     val shadowBlur: Float = 0.06f,
     val shadowDx: Float = 0.03f,
     val shadowDy: Float = 0.03f,
+    // --- background box (text only) ---
     val bgOn: Boolean = false,
     val bgColor: Int = 0xCC000000.toInt(),
     val bgPad: Float = 0.3f,
     val bgRadius: Float = 0.25f,
 )
 
-/** The whole document. Immutable, so undo/redo is just a list of snapshots. */
+/** The whole document. Immutable, so undo/redo is just a list of snapshots. Layers are bottom to top. */
 data class Project(
     val docW: Int,
     val docH: Int,
     val bgColor: Int,
     val hasPhoto: Boolean,
-    val items: List<TextItem>,
+    val items: List<Layer>,
     val nextId: Long,
 )
 
 private fun JSONObject.f(key: String, def: Float): Float = optDouble(key, def.toDouble()).toFloat()
 
-fun textItemToJson(t: TextItem): JSONObject {
+fun layerToJson(t: Layer): JSONObject {
     val o = JSONObject()
     o.put("id", t.id)
-    o.put("text", t.text)
+    o.put("type", t.type)
     o.put("cx", t.cx.toDouble())
     o.put("cy", t.cy.toDouble())
     o.put("size", t.size.toDouble())
     o.put("rotation", t.rotation.toDouble())
+    o.put("opacity", t.opacity.toDouble())
+    o.put("locked", t.locked)
+    o.put("visible", t.visible)
+    o.put("text", t.text)
     o.put("fontKey", t.fontKey)
     o.put("color", t.color)
     o.put("bold", t.bold)
     o.put("italic", t.italic)
     o.put("align", t.align)
-    o.put("opacity", t.opacity.toDouble())
     o.put("lineSpacing", t.lineSpacing.toDouble())
+    o.put("shapeKind", t.shapeKind)
+    o.put("aspect", t.aspect.toDouble())
+    o.put("corner", t.corner.toDouble())
+    o.put("fillOn", t.fillOn)
     o.put("strokeOn", t.strokeOn)
     o.put("strokeColor", t.strokeColor)
     o.put("strokeRel", t.strokeRel.toDouble())
@@ -83,23 +105,30 @@ fun textItemToJson(t: TextItem): JSONObject {
     return o
 }
 
-fun textItemFromJson(o: JSONObject): TextItem {
-    val d = TextItem(
+fun layerFromJson(o: JSONObject): Layer {
+    val d = Layer(
         id = o.optLong("id", 0L),
-        text = o.optString("text", ""),
         cx = o.f("cx", 0f),
         cy = o.f("cy", 0f),
         size = o.f("size", 80f),
     )
     return d.copy(
+        type = o.optInt("type", d.type),
         rotation = o.f("rotation", d.rotation),
+        opacity = o.f("opacity", d.opacity),
+        locked = o.optBoolean("locked", d.locked),
+        visible = o.optBoolean("visible", d.visible),
+        text = o.optString("text", d.text),
         fontKey = o.optString("fontKey", d.fontKey),
         color = o.optInt("color", d.color),
         bold = o.optBoolean("bold", d.bold),
         italic = o.optBoolean("italic", d.italic),
         align = o.optInt("align", d.align),
-        opacity = o.f("opacity", d.opacity),
         lineSpacing = o.f("lineSpacing", d.lineSpacing),
+        shapeKind = o.optInt("shapeKind", d.shapeKind),
+        aspect = o.f("aspect", d.aspect),
+        corner = o.f("corner", d.corner),
+        fillOn = o.optBoolean("fillOn", d.fillOn),
         strokeOn = o.optBoolean("strokeOn", d.strokeOn),
         strokeColor = o.optInt("strokeColor", d.strokeColor),
         strokeRel = o.f("strokeRel", d.strokeRel),
@@ -117,25 +146,25 @@ fun textItemFromJson(o: JSONObject): TextItem {
 
 fun projectToJson(p: Project): JSONObject {
     val o = JSONObject()
-    o.put("version", 1)
+    o.put("version", 2)
     o.put("docW", p.docW)
     o.put("docH", p.docH)
     o.put("bgColor", p.bgColor)
     o.put("hasPhoto", p.hasPhoto)
     o.put("nextId", p.nextId)
     val arr = JSONArray()
-    for (t in p.items) arr.put(textItemToJson(t))
+    for (t in p.items) arr.put(layerToJson(t))
     o.put("items", arr)
     return o
 }
 
 fun projectFromJson(o: JSONObject): Project {
-    val items = ArrayList<TextItem>()
+    val items = ArrayList<Layer>()
     val arr = o.optJSONArray("items")
     if (arr != null) {
         for (i in 0 until arr.length()) {
             val child = arr.optJSONObject(i)
-            if (child != null) items.add(textItemFromJson(child))
+            if (child != null) items.add(layerFromJson(child))
         }
     }
     var maxId = 0L

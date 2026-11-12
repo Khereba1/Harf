@@ -32,7 +32,7 @@
     <string name="delete">حذف</string>
     <string name="bring_forward">قدّام</string>
     <string name="send_backward">ورا</string>
-    <string name="hint_empty">دوس على + نص عشان تضيف نص. اسحبه لتحريكه، وبإصبعين كبّره أو لفّه، ودوس مرتين لتعديل الكلام.</string>
+    <string name="hint_empty">دوس على + نص عشان تضيف نص، أو افتح أشكال وإيموجي. اسحب لتحريك، وبإصبعين كبّر أو لفّ، ودوس مرتين لتعديل النص.</string>
     <string name="text_dialog_add">إضافة نص</string>
     <string name="text_dialog_edit">تعديل النص</string>
     <string name="text_hint">النص</string>
@@ -82,4 +82,17 @@
     <string name="close_confirm_title">تقفل المشروع ده؟</string>
     <string name="close_confirm_msg">أي حاجة ماحفظتهاش في المعرض هتضيع.</string>
     <string name="discard">اقفل من غير حفظ</string>
+    <string name="tool_text">نص</string>
+    <string name="tool_shapes">أشكال</string>
+    <string name="tool_emoji">إيموجي</string>
+    <string name="tool_layers">الطبقات</string>
+    <string name="tab_add">إضافة</string>
+    <string name="tab_fill">التعبئة</string>
+    <string name="lock">قفل</string>
+    <string name="unlock">فك القفل</string>
+    <string name="layers_empty">مفيش طبقات لسه.</string>
+    <string name="layer_shape">شكل</string>
+    <string name="fill_label">التعبئة</string>
+    <string name="fill_color">لون التعبئة</string>
+    <string name="aspect_label">نسبة الارتفاع</string>
 </resources>

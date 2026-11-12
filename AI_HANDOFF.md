@@ -20,27 +20,30 @@ You cannot compile: be careful and conservative. A mistake shows up only as a fa
 ## Files (app/src/main/java/com/khereba1/app)
 - App.kt: Application (starts AppLog + FontStore), AppLog (file error log), LocaleHelper (in-app language).
 - MainActivity.kt: activity (receives photos shared from other apps), AppRoot (Scaffold, snackbar, start/editor switch).
-- Model.kt: `TextItem` (one text layer) and `Project` (immutable document) + JSON (de)serialisation. Sizes of outline/shadow/box are RELATIVE to the text size.
-- Renderer.kt: draws a Project with android.graphics (StaticLayout, stroke pass, shadow layer, background box, layer alpha). The SAME code paints the preview and the exported image. Also hit-testing and `fitDoc` (doc px <-> view px).
-- HarfViewModel.kt: state holder (survives language change), undo/redo as snapshots with coalescing, debounced autosave, export.
+- Model.kt: `Layer` (ONE data class for every layer: `type` TYPE_TEXT or TYPE_SHAPE; emoji are text layers) and `Project` (immutable document, layers bottom to top in `items`) + JSON. Sizes of outline/shadow/box are RELATIVE to `size`. Old saved projects without `type` load as text.
+- Shapes.kt: 20 original vector shapes built as android.graphics.Path (`Shapes.build(kind, w, h, corner)`).
+- Renderer.kt: draws a Project with android.graphics (StaticLayout text with stroke pass / shadow layer / background box, shape paths, layer alpha). The SAME code paints the preview and the exported image. Also `boxOf`, hit-testing (skips hidden and locked layers) and `fitDoc` (doc px <-> view px).
+- HarfViewModel.kt: state holder (survives language change), undo/redo as snapshots with coalescing, debounced autosave, export, layer operations (add text/shape/emoji, lock, hide, reorder, delete, duplicate).
 - Storage.kt: `Session` (autosave of the current project into filesDir/session), `ImageIO` (ImageDecoder decode with EXIF + downscale to 2560 px, save to Pictures/Harf via MediaStore).
 - FontStore.kt: fonts = system families, assets/fonts (downloaded by the workflow, gitignored), user-imported files.
-- EditorScreen.kt: editor layout + the gesture canvas (drag / pinch / twist / double-tap). Panels.kt: Font, Color, Layout, Outline, Shadow, Box panels. Dialogs.kt: color picker, text, export, blank canvas, settings. StartScreen.kt, Theme.kt.
+- EditorScreen.kt: editor layout (top bar, canvas, layer action row, tool chips Text/Shapes/Emoji/Layers, fixed-height panel) + the gesture canvas (drag / pinch / twist / double-tap). Keep the bottom area a fixed height so the canvas never resizes under a finger.
+- Panels.kt: SubTabs, Font/Color/Layout/Outline/Shadow/Box panels (generic over Layer), ShapeAdd/ShapeFill, Emoji, Layers panels. Dialogs.kt: color picker, text, export, blank canvas, settings. StartScreen.kt, Theme.kt.
 Document coordinates = pixels of the photo (or of the blank canvas). Editing goes through `vm.editItem(key, fresh) { it.copy(...) }`.
 
-## Roadmap (phase 1 is done)
-Phase 2: stickers/shapes/emoji, extra images, freehand drawing, layers list, saved-projects list.
-Phase 3: gradient / texture text fill, curved text, filters, letter spacing.
+## Roadmap (phase 1 and edit1 are done)
+edit2: extra image layers (from gallery) and freehand drawing (pen/eraser as a layer).
+edit3: saved-projects list with thumbnails, background tool (color / gradient / photo adjustments).
+edit4: text gradient / texture fill, curved text, letter spacing, filters.
 Optional later: background removal, perspective, 3D text.
 Do NOT copy any code, assets, names or data formats from other apps (this project is an original MIT-licensed work).
 
 ## REQUIRED answer format (the owner has only a phone + Termux)
 1. Briefly say what you changed and why (plain language; the owner writes Egyptian Arabic mixed with English terms, reply in the same).
 2. Deliver ONE zip containing only the changed/new files, complete (never snippets or diffs), with paths relative to the project root.
-   Name it `fixN.zip` (fix1, fix2, ...). If you cannot create a zip, give each file in full in its own code block with its path, and say so.
+   Name it `editN.zip` (edit1, edit2, ...). If you cannot create a zip, give each file in full in its own code block with its path, and say so.
 3. Raise `versionCode` (+1) and `versionName` in `app/build.gradle.kts` for every functional change, and include that file.
 4. Give the install command, ready to copy, with the real folder name:
-   `cd ~/harf && unzip -o "$(ls -t ~/storage/downloads/fixN*.zip | head -1)" -d . && git add . && git commit -m "short message" && git push`
+   `cd ~/harf && unzip -o "$(ls -t ~/storage/downloads/editN*.zip | head -1)" -d . && git add . && git commit -m "short message" && git push`
    (GitHub repo: Khereba1/Harf, APK: github.com/Khereba1/Harf/releases/tag/latest)
 5. Say honestly that nothing was compiled or tested, and what to check first on the phone.
 6. If the build fails, the owner sends lines containing `e: ` from the Actions log; fix only those.
