@@ -1,0 +1,195 @@
+package com.khereba1.app
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sin
+
+/** A text item measured and laid out, ready to draw. */
+class BuiltText(
+    val layout: StaticLayout,
+    val paint: TextPaint,
+    val pad: Float,
+    val boxW: Float,
+    val boxH: Float,
+)
+
+/** Maps document pixels to view pixels (uniform scale + centering offset). */
+class Fit(val scale: Float, val ox: Float, val oy: Float)
+
+fun fitDoc(viewW: Float, viewH: Float, docW: Int, docH: Int): Fit {
+    val margin = 12f
+    val s = min((viewW - 2f * margin) / docW, (viewH - 2f * margin) / docH)
+    val scale = if (s > 0.01f) s else 0.01f
+    return Fit(scale, (viewW - docW * scale) / 2f, (viewH - docH * scale) / 2f)
+}
+
+/**
+ * Draws a [Project]. The same code paints the on-screen preview and the exported image,
+ * so what you see is what you save.
+ */
+object Renderer {
+
+    fun build(item: TextItem, docW: Int): BuiltText {
+        val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+        paint.textSize = max(4f, item.size)
+        paint.typeface = FontStore.typeface(item.fontKey, item.bold, item.italic)
+        val text: CharSequence = if (item.text.isEmpty()) " " else item.text
+        val pad = if (item.bgOn) item.bgPad * item.size else 0f
+        val maxW = max(40, (docW * 0.94f - 2f * pad).toInt())
+        val desired = Layout.getDesiredWidth(text, paint)
+        val w = max(1, min(ceil(desired.toDouble()).toInt() + 2, maxW))
+        val alignment = when (item.align) {
+            ALIGN_START -> Layout.Alignment.ALIGN_NORMAL
+            ALIGN_END -> Layout.Alignment.ALIGN_OPPOSITE
+            else -> Layout.Alignment.ALIGN_CENTER
+        }
+        val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, w)
+            .setAlignment(alignment)
+            .setLineSpacing(0f, item.lineSpacing)
+            .build()
+        val boxW = layout.width.toFloat() + 2f * pad
+        val boxH = layout.height.toFloat() + 2f * pad
+        return BuiltText(layout, paint, pad, boxW, boxH)
+    }
+
+    private fun drawItem(canvas: Canvas, item: TextItem, docW: Int) {
+        val b = build(item, docW)
+        val saved = canvas.save()
+        canvas.translate(item.cx, item.cy)
+        canvas.rotate(item.rotation)
+        canvas.translate(-b.boxW / 2f, -b.boxH / 2f)
+
+        val alpha = (item.opacity.coerceIn(0f, 1f) * 255f).roundToInt()
+        var layerSaved = -1
+        if (alpha < 255) {
+            val bleed = item.size * 0.8f
+            layerSaved = canvas.saveLayerAlpha(-bleed, -bleed, b.boxW + bleed, b.boxH + bleed, alpha)
+        }
+
+        if (item.bgOn) {
+            val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+            boxPaint.style = Paint.Style.FILL
+            boxPaint.color = item.bgColor
+            val r = min(item.bgRadius * item.size, min(b.boxW, b.boxH) / 2f)
+            canvas.drawRoundRect(RectF(0f, 0f, b.boxW, b.boxH), r, r, boxPaint)
+        }
+
+        canvas.translate(b.pad, b.pad)
+        val p = b.paint
+        val shadowRadius = max(0.5f, item.shadowBlur * item.size)
+        val shadowDx = item.shadowDx * item.size
+        val shadowDy = item.shadowDy * item.size
+
+        if (item.strokeOn && item.strokeRel > 0f) {
+            p.style = Paint.Style.STROKE
+            p.strokeJoin = Paint.Join.ROUND
+            p.strokeWidth = item.strokeRel * item.size * 2f
+            p.color = item.strokeColor
+            if (item.shadowOn) p.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor) else p.clearShadowLayer()
+            b.layout.draw(canvas)
+            p.style = Paint.Style.FILL
+            p.clearShadowLayer()
+            p.color = item.color
+            b.layout.draw(canvas)
+        } else {
+            p.style = Paint.Style.FILL
+            p.color = item.color
+            if (item.shadowOn) p.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor) else p.clearShadowLayer()
+            b.layout.draw(canvas)
+        }
+
+        if (layerSaved >= 0) canvas.restoreToCount(layerSaved)
+        canvas.restoreToCount(saved)
+    }
+
+    private fun drawSelection(canvas: Canvas, item: TextItem, docW: Int, invScale: Float, color: Int) {
+        val b = build(item, docW)
+        val saved = canvas.save()
+        canvas.translate(item.cx, item.cy)
+        canvas.rotate(item.rotation)
+        val line = Paint(Paint.ANTI_ALIAS_FLAG)
+        line.style = Paint.Style.STROKE
+        line.strokeWidth = 2f * invScale
+        line.color = color
+        val l = -b.boxW / 2f
+        val t = -b.boxH / 2f
+        val r = b.boxW / 2f
+        val bt = b.boxH / 2f
+        canvas.drawRect(l, t, r, bt, line)
+        val dot = Paint(Paint.ANTI_ALIAS_FLAG)
+        dot.style = Paint.Style.FILL
+        dot.color = color
+        val rad = 5f * invScale
+        canvas.drawCircle(l, t, rad, dot)
+        canvas.drawCircle(r, t, rad, dot)
+        canvas.drawCircle(l, bt, rad, dot)
+        canvas.drawCircle(r, bt, rad, dot)
+        canvas.restoreToCount(saved)
+    }
+
+    /** Paints the whole document at 1 doc pixel = 1 canvas pixel (caller applies any view scale). */
+    fun drawDocument(
+        canvas: Canvas,
+        p: Project,
+        photo: Bitmap?,
+        selectedId: Long?,
+        invScale: Float,
+        selectionColor: Int,
+    ) {
+        val saved = canvas.save()
+        canvas.clipRect(0f, 0f, p.docW.toFloat(), p.docH.toFloat())
+        canvas.drawColor(p.bgColor)
+        if (photo != null && !photo.isRecycled) {
+            val pp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+            canvas.drawBitmap(photo, null, RectF(0f, 0f, p.docW.toFloat(), p.docH.toFloat()), pp)
+        }
+        for (item in p.items) drawItem(canvas, item, p.docW)
+        canvas.restoreToCount(saved)
+        if (selectedId != null) {
+            for (item in p.items) {
+                if (item.id == selectedId) drawSelection(canvas, item, p.docW, invScale, selectionColor)
+            }
+        }
+    }
+
+    /** Returns the id of the top-most item under the document point (x, y), or null. */
+    fun hitTest(p: Project, x: Float, y: Float, tolerance: Float): Long? {
+        for (i in p.items.indices.reversed()) {
+            val item = p.items[i]
+            val b = build(item, p.docW)
+            val dx = x - item.cx
+            val dy = y - item.cy
+            val a = Math.toRadians(-item.rotation.toDouble())
+            val c = cos(a)
+            val s = sin(a)
+            val lx = (dx * c - dy * s).toFloat()
+            val ly = (dx * s + dy * c).toFloat()
+            if (abs(lx) <= b.boxW / 2f + tolerance && abs(ly) <= b.boxH / 2f + tolerance) return item.id
+        }
+        return null
+    }
+
+    /** Renders the final image. Returns null if there is not enough memory. */
+    fun exportBitmap(p: Project, photo: Bitmap?): Bitmap? {
+        return try {
+            val out = Bitmap.createBitmap(p.docW, p.docH, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(out)
+            drawDocument(canvas, p, photo, null, 1f, 0)
+            out
+        } catch (e: OutOfMemoryError) {
+            AppLog.log("EXPORT", "Out of memory while rendering " + p.docW + "x" + p.docH, null)
+            null
+        }
+    }
+}

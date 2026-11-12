@@ -1,0 +1,15 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+*.jks
+*.keystore
+
+# fonts are downloaded at build time (see .github/workflows/build.yml), never committed
+app/src/main/assets/fonts/
