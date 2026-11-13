@@ -53,8 +53,34 @@ object Session {
         try {
             jsonFile(ctx).delete()
             photoFile(ctx).delete()
+            clearImages(ctx)
         } catch (e: Throwable) {
             AppLog.log("SESSION", "Clear failed", e)
+        }
+    }
+
+    private fun imageFile(ctx: Context, key: String): File = File(dir(ctx), "img_" + key + ".src")
+
+    fun imageFileFor(ctx: Context, key: String): File = imageFile(ctx, key)
+
+    fun clearImages(ctx: Context) {
+        try {
+            val files = dir(ctx).listFiles() ?: return
+            for (f in files) if (f.name.startsWith("img_")) f.delete()
+        } catch (e: Throwable) {
+            AppLog.log("SESSION", "Clearing images failed", e)
+        }
+    }
+
+    /** Copies a picked picture (an image layer) into private storage under [key]. */
+    fun copyImageIn(ctx: Context, uri: Uri, key: String): Boolean {
+        return try {
+            val input = ctx.contentResolver.openInputStream(uri) ?: return false
+            input.use { src -> imageFile(ctx, key).outputStream().use { dst -> src.copyTo(dst) } }
+            true
+        } catch (e: Throwable) {
+            AppLog.log("SESSION", "Copying image failed", e)
+            false
         }
     }
 
@@ -80,7 +106,7 @@ object ImageIO {
     const val MAX_SIDE = 2560
 
     /** Decodes a photo (EXIF rotation applied) into a software bitmap, downscaled if huge. */
-    fun decode(file: File): Bitmap? {
+    fun decode(file: File, maxSide: Int = MAX_SIDE): Bitmap? {
         return try {
             val source = ImageDecoder.createSource(file)
             ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
@@ -88,8 +114,8 @@ object ImageIO {
                 val w = info.size.width
                 val h = info.size.height
                 val longest = max(w, h)
-                if (longest > MAX_SIDE) {
-                    val r = MAX_SIDE.toFloat() / longest.toFloat()
+                if (longest > maxSide) {
+                    val r = maxSide.toFloat() / longest.toFloat()
                     decoder.setTargetSize(max(1, (w * r).roundToInt()), max(1, (h * r).roundToInt()))
                 }
             }

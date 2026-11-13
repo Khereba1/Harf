@@ -72,11 +72,11 @@ fun ToolItem(
     val tint = if (selected) scheme.primary else scheme.onSurfaceVariant
     Column(
         modifier = modifier
-            .defaultMinSize(minWidth = 64.dp)
+            .defaultMinSize(minWidth = 56.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(if (selected) scheme.primaryContainer else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {

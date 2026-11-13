@@ -16,7 +16,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private class Restored(val project: Project, val photo: Bitmap?)
+private const val IMAGE_LAYER_SIDE = 1600
+
+private class Restored(val project: Project, val photo: Bitmap?, val images: Map<String, Bitmap>)
 
 /**
  * Holds the open project. It lives in a ViewModel so rotating the phone or switching the
@@ -27,6 +29,8 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     var project: Project? by mutableStateOf(null)
         private set
     var photo: Bitmap? by mutableStateOf(null)
+        private set
+    var images: Map<String, Bitmap> by mutableStateOf(emptyMap())
         private set
     var selectedId: Long? by mutableStateOf(null)
         private set
@@ -64,11 +68,20 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
                     val p = Session.load(ctx)
                     if (p == null) {
                         null
-                    } else if (p.hasPhoto) {
-                        val b = ImageIO.decode(Session.photoFile(ctx))
-                        if (b == null) null else Restored(p, b)
                     } else {
-                        Restored(p, null)
+                        val imgs = HashMap<String, Bitmap>()
+                        for (l in p.items) {
+                            if (l.type == TYPE_IMAGE && l.imageKey.isNotEmpty() && !imgs.containsKey(l.imageKey)) {
+                                val ib = ImageIO.decode(Session.imageFileFor(ctx, l.imageKey), IMAGE_LAYER_SIDE)
+                                if (ib != null) imgs[l.imageKey] = ib
+                            }
+                        }
+                        if (p.hasPhoto) {
+                            val b = ImageIO.decode(Session.photoFile(ctx))
+                            if (b == null) null else Restored(p, b, imgs)
+                        } else {
+                            Restored(p, null, imgs)
+                        }
                     }
                 } catch (e: Throwable) {
                     AppLog.log("SESSION", "Restore failed", e)
@@ -78,6 +91,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
             if (restored != null && !userStarted && project == null) {
                 project = restored.project
                 photo = restored.photo
+                images = restored.images
             }
             ready = true
         }
@@ -107,6 +121,8 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
                 toastRes = R.string.err_open_image
             } else {
                 resetHistory()
+                Session.clearImages(ctx)
+                images = emptyMap()
                 photo = bmp
                 project = Project(bmp.width, bmp.height, Color.WHITE, true, emptyList(), 1L)
                 selectedId = null
@@ -120,6 +136,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         userStarted = true
         resetHistory()
         photo = null
+        images = emptyMap()
         project = Project(width, height, color or 0xFF000000.toInt(), false, emptyList(), 1L)
         selectedId = null
         Session.clear(getApplication<Application>())
@@ -131,6 +148,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         resetHistory()
         project = null
         photo = null
+        images = emptyMap()
         selectedId = null
         Session.clear(getApplication<Application>())
     }
@@ -248,7 +266,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
             p.copy(
                 items = p.items.map { t ->
                     if (t.id == id && !t.locked) {
-                        val maxSize = if (t.type == TYPE_SHAPE) p.docW * 2f else p.docW * 0.9f
+                        val maxSize = if (t.type == TYPE_TEXT) p.docW * 0.9f else p.docW * 2f
                         t.copy(
                             cx = t.cx + dx,
                             cy = t.cy + dy,
@@ -343,6 +361,48 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         scheduleSave()
     }
 
+    /** Adds a picture from the gallery as a movable, resizable layer. */
+    fun addImage(uri: Uri) {
+        if (project == null || busy) return
+        busy = true
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val key = "i" + System.currentTimeMillis().toString()
+            val bmp: Bitmap? = withContext(Dispatchers.IO) {
+                try {
+                    if (Session.copyImageIn(ctx, uri, key)) ImageIO.decode(Session.imageFileFor(ctx, key), IMAGE_LAYER_SIDE) else null
+                } catch (e: Throwable) {
+                    AppLog.log("IMAGE", "Adding image failed", e)
+                    null
+                }
+            }
+            val p = project
+            if (bmp == null || p == null) {
+                if (bmp == null) toastRes = R.string.err_open_image
+            } else {
+                val id = p.nextId
+                val w = p.docW * 0.5f
+                val layer = Layer(
+                    id = id,
+                    type = TYPE_IMAGE,
+                    cx = p.docW / 2f,
+                    cy = p.docH / 2f,
+                    size = w,
+                    aspect = bmp.height.toFloat() / bmp.width.toFloat(),
+                    corner = 0f,
+                    imageKey = key,
+                )
+                images = images + (key to bmp)
+                pushUndo(p)
+                coalesceKey = null
+                project = p.copy(items = p.items + layer, nextId = id + 1L)
+                selectedId = id
+                scheduleSave()
+            }
+            busy = false
+        }
+    }
+
     fun addEmoji(emoji: String) {
         val p = project ?: return
         val id = p.nextId
@@ -398,11 +458,12 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         if (busy) return
         busy = true
         val ph = photo
+        val imgs = images
         val ctx = getApplication<Application>()
         viewModelScope.launch {
             val uri: Uri? = withContext(Dispatchers.IO) {
                 try {
-                    val bmp = Renderer.exportBitmap(p, ph)
+                    val bmp = Renderer.exportBitmap(p, ph, imgs)
                     if (bmp == null) {
                         null
                     } else {

@@ -104,8 +104,13 @@ fun FontPanel(vm: HarfViewModel, item: Layer) {
                 Text(stringResource(R.string.import_font))
             }
         }
+        androidx.compose.material3.HorizontalDivider(
+            modifier = Modifier.padding(top = 6.dp),
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 8.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -161,7 +166,8 @@ fun ColorPanel(vm: HarfViewModel, item: Layer, label: String) {
 @Composable
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
-    val isShape = item.type == TYPE_SHAPE
+    val isShape = item.type != TYPE_TEXT
+    val isImage = item.type == TYPE_IMAGE
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -171,17 +177,17 @@ fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
         LabeledSlider(
             label = stringResource(R.string.size_label),
             value = item.size / docW,
-            range = if (isShape) 0.03f..1.2f else 0.02f..0.4f,
+            range = if (isShape) 0.03f..1.5f else 0.02f..0.4f,
             valueText = pct(item.size / docW),
         ) { v -> vm.editItem("size", false) { it.copy(size = v * docW) } }
         if (isShape) {
-            LabeledSlider(
+            if (!isImage) LabeledSlider(
                 label = stringResource(R.string.aspect_label),
                 value = item.aspect,
                 range = 0.15f..3f,
                 valueText = pct(item.aspect),
             ) { v -> vm.editItem("aspect", false) { it.copy(aspect = v) } }
-            if (Shapes.usesCorner(item.shapeKind)) {
+            if (isImage || Shapes.usesCorner(item.shapeKind)) {
                 LabeledSlider(
                     label = stringResource(R.string.corner_radius),
                     value = item.corner,
@@ -366,6 +372,7 @@ fun ShapeAddPanel(vm: HarfViewModel) {
     val kinds = remember { (0 until Shapes.COUNT).toList() }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(60.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 12.dp),
@@ -416,6 +423,52 @@ fun ShapeFillPanel(vm: HarfViewModel, item: Layer) {
     }
 }
 
+/** Pick a picture from the gallery to add as a layer. */
+@Composable
+fun ImageAddPanel(vm: HarfViewModel) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) vm.addImage(uri)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.image_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.height(14.dp))
+        androidx.compose.material3.Button(
+            onClick = { picker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            enabled = !vm.busy,
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            HIcon(R.drawable.ic_image, null, tint = MaterialTheme.colorScheme.onPrimary, size = 20.dp)
+            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+            Text(stringResource(R.string.add_image))
+        }
+    }
+}
+
+/** Flip the selected image left-right. */
+@Composable
+fun ImageFlipPanel(vm: HarfViewModel, item: Layer) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp),
+    ) {
+        SwitchRow(stringResource(R.string.flip_label), item.flipX) { on ->
+            vm.editItem("flip", true) { it.copy(flipX = on) }
+        }
+    }
+}
+
 private val EMOJIS: List<String> = listOf(
     "😀", "😁", "😂", "🤣", "😊", "😍", "😘", "😎", "🤩", "🥳", "😜", "🤪",
     "🤔", "😴", "😭", "😡", "🥶", "🤯", "😱", "🙄", "😇", "🤗", "🤫", "🥰",
@@ -433,6 +486,7 @@ private val EMOJIS: List<String> = listOf(
 fun EmojiPanel(vm: HarfViewModel) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(48.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 12.dp),
@@ -467,6 +521,7 @@ private fun MiniButton(res: Int, desc: String?, tint: Color, onClick: () -> Unit
 @Composable
 fun LayersPanel(vm: HarfViewModel, project: Project) {
     val shapeLabel = stringResource(R.string.layer_shape)
+    val imageLabel = stringResource(R.string.layer_image)
     val rows = remember(project.items) { project.items.reversed() }
     if (rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -483,7 +538,11 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
         ) {
             items(rows, key = { it.id }) { layer ->
                 val isSelected = layer.id == vm.selectedId
-                val label = if (layer.type == TYPE_SHAPE) shapeLabel else layer.text.replace('\n', ' ')
+                val label = when (layer.type) {
+                    TYPE_SHAPE -> shapeLabel
+                    TYPE_IMAGE -> imageLabel
+                    else -> layer.text.replace('\n', ' ')
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -494,7 +553,11 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     HIcon(
-                        if (layer.type == TYPE_SHAPE) R.drawable.ic_shapes else R.drawable.ic_text,
+                        when (layer.type) {
+                            TYPE_SHAPE -> R.drawable.ic_shapes
+                            TYPE_IMAGE -> R.drawable.ic_image
+                            else -> R.drawable.ic_text
+                        },
                         null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         size = 18.dp,

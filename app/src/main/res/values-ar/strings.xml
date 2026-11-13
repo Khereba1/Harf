@@ -95,4 +95,9 @@
     <string name="fill_label">التعبئة</string>
     <string name="fill_color">لون التعبئة</string>
     <string name="aspect_label">نسبة الارتفاع</string>
+    <string name="tool_image">صورة</string>
+    <string name="add_image">إضافة صورة من المعرض</string>
+    <string name="flip_label">قلب</string>
+    <string name="layer_image">صورة</string>
+    <string name="image_hint">أضف صورة فوق صورتك — شعار أو ستيكر أو PNG مقصوص.</string>
 </resources>

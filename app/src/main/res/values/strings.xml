@@ -98,4 +98,9 @@
     <string name="fill_label">Fill</string>
     <string name="fill_color">Fill color</string>
     <string name="aspect_label">Height ratio</string>
+    <string name="tool_image">Image</string>
+    <string name="add_image">Add image from gallery</string>
+    <string name="flip_label">Flip</string>
+    <string name="layer_image">Image</string>
+    <string name="image_hint">Add a picture on top of your photo — a logo, sticker or cut-out PNG.</string>
 </resources>

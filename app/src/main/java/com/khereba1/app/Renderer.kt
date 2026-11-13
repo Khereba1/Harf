@@ -67,14 +67,39 @@ object Renderer {
     }
 
     fun boxOf(item: Layer, docW: Int): LayerBox {
-        if (item.type == TYPE_SHAPE) return LayerBox(item.size, item.size * item.aspect)
+        if (item.type != TYPE_TEXT) return LayerBox(item.size, item.size * item.aspect)
         val b = build(item, docW)
         return LayerBox(b.boxW, b.boxH)
     }
 
-    private fun drawLayer(canvas: Canvas, item: Layer, docW: Int) {
+    private fun drawLayer(canvas: Canvas, item: Layer, docW: Int, images: Map<String, Bitmap>) {
         if (!item.visible) return
-        if (item.type == TYPE_SHAPE) drawShape(canvas, item) else drawText(canvas, item, docW)
+        when (item.type) {
+            TYPE_SHAPE -> drawShape(canvas, item)
+            TYPE_IMAGE -> drawImage(canvas, item, images[item.imageKey])
+            else -> drawText(canvas, item, docW)
+        }
+    }
+
+    private fun drawImage(canvas: Canvas, item: Layer, bmp: Bitmap?) {
+        if (bmp == null || bmp.isRecycled) return
+        val w = item.size
+        val h = item.size * item.aspect
+        val saved = canvas.save()
+        canvas.translate(item.cx, item.cy)
+        canvas.rotate(item.rotation)
+        if (item.flipX) canvas.scale(-1f, 1f)
+        val rect = RectF(-w / 2f, -h / 2f, w / 2f, h / 2f)
+        val r = min(item.corner, 0.5f) * min(w, h)
+        if (r > 0.5f) {
+            val clip = android.graphics.Path()
+            clip.addRoundRect(rect, r, r, android.graphics.Path.Direction.CW)
+            canvas.clipPath(clip)
+        }
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+        paint.alpha = (item.opacity.coerceIn(0f, 1f) * 255f).roundToInt()
+        canvas.drawBitmap(bmp, null, rect, paint)
+        canvas.restoreToCount(saved)
     }
 
     private fun drawShape(canvas: Canvas, item: Layer) {
@@ -203,6 +228,7 @@ object Renderer {
         canvas: Canvas,
         p: Project,
         photo: Bitmap?,
+        images: Map<String, Bitmap>,
         selectedId: Long?,
         invScale: Float,
         selectionColor: Int,
@@ -214,7 +240,7 @@ object Renderer {
             val pp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
             canvas.drawBitmap(photo, null, RectF(0f, 0f, p.docW.toFloat(), p.docH.toFloat()), pp)
         }
-        for (item in p.items) drawLayer(canvas, item, p.docW)
+        for (item in p.items) drawLayer(canvas, item, p.docW, images)
         canvas.restoreToCount(saved)
         if (selectedId != null) {
             for (item in p.items) {
@@ -242,11 +268,11 @@ object Renderer {
     }
 
     /** Renders the final image. Returns null if there is not enough memory. */
-    fun exportBitmap(p: Project, photo: Bitmap?): Bitmap? {
+    fun exportBitmap(p: Project, photo: Bitmap?, images: Map<String, Bitmap>): Bitmap? {
         return try {
             val out = Bitmap.createBitmap(p.docW, p.docH, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(out)
-            drawDocument(canvas, p, photo, null, 1f, 0)
+            drawDocument(canvas, p, photo, images, null, 1f, 0)
             out
         } catch (e: OutOfMemoryError) {
             AppLog.log("EXPORT", "Out of memory while rendering " + p.docW + "x" + p.docH, null)

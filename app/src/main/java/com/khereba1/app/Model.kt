@@ -10,6 +10,7 @@ const val ALIGN_END = 2
 
 const val TYPE_TEXT = 0
 const val TYPE_SHAPE = 1
+const val TYPE_IMAGE = 2
 
 /**
  * One layer on the canvas: a text (emoji are texts too) or a vector shape.
@@ -40,6 +41,9 @@ data class Layer(
     val aspect: Float = 1f,
     val corner: Float = 0.2f,
     val fillOn: Boolean = true,
+    // --- image (size = width, height = size * aspect; corner = rounding) ---
+    val imageKey: String = "",
+    val flipX: Boolean = false,
     // --- outline / shadow (text and shapes) ---
     val strokeOn: Boolean = false,
     val strokeColor: Int = Color.BLACK,
@@ -90,6 +94,8 @@ fun layerToJson(t: Layer): JSONObject {
     o.put("aspect", t.aspect.toDouble())
     o.put("corner", t.corner.toDouble())
     o.put("fillOn", t.fillOn)
+    o.put("imageKey", t.imageKey)
+    o.put("flipX", t.flipX)
     o.put("strokeOn", t.strokeOn)
     o.put("strokeColor", t.strokeColor)
     o.put("strokeRel", t.strokeRel.toDouble())
@@ -129,6 +135,8 @@ fun layerFromJson(o: JSONObject): Layer {
         aspect = o.f("aspect", d.aspect),
         corner = o.f("corner", d.corner),
         fillOn = o.optBoolean("fillOn", d.fillOn),
+        imageKey = o.optString("imageKey", d.imageKey),
+        flipX = o.optBoolean("flipX", d.flipX),
         strokeOn = o.optBoolean("strokeOn", d.strokeOn),
         strokeColor = o.optInt("strokeColor", d.strokeColor),
         strokeRel = o.f("strokeRel", d.strokeRel),

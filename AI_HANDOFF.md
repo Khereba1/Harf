@@ -56,3 +56,6 @@ Never print, commit or ask for them, and never ask for the backup folder.
 
 ## edit2 (design pass)
 Always-dark theme (Theme.kt), stroke vector icons in res/drawable/ic_*.xml, shared components in Ui.kt (HIcon, IconAction, ToolItem, SectionLabel), floating action pill over canvas, rounded bottom sheet with icon tool bar, underline SubTabs, restyled dialogs/start screen. versionCode 4 / 1.3.
+
+## edit3
+Fixed 48dp action strip under the canvas (no floating pill), dividers in panels, TYPE_IMAGE layers (gallery pictures; files session/img_<key>.src, VM.images map, Renderer.drawImage), 5th tool "Image". versionCode 5 / 1.4.

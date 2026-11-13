@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,7 +57,8 @@ import androidx.compose.ui.unit.dp
 private const val TOOL_TEXT = 0
 private const val TOOL_SHAPES = 1
 private const val TOOL_EMOJI = 2
-private const val TOOL_LAYERS = 3
+private const val TOOL_IMAGE = 3
+private const val TOOL_LAYERS = 4
 
 private const val DIALOG_NONE = 0
 private const val DIALOG_ADD = 1
@@ -72,6 +74,7 @@ fun EditorScreen(vm: HarfViewModel) {
     var textTab by remember { mutableIntStateOf(0) }
     var shapeTab by remember { mutableIntStateOf(0) }
     var emojiTab by remember { mutableIntStateOf(0) }
+    var imageTab by remember { mutableIntStateOf(0) }
     var textDialog by remember { mutableIntStateOf(DIALOG_NONE) }
     var showExport by remember { mutableStateOf(false) }
     var showClose by remember { mutableStateOf(false) }
@@ -86,6 +89,7 @@ fun EditorScreen(vm: HarfViewModel) {
             tool = when {
                 tool == TOOL_LAYERS -> TOOL_LAYERS
                 s.type == TYPE_SHAPE -> TOOL_SHAPES
+                s.type == TYPE_IMAGE -> TOOL_IMAGE
                 tool == TOOL_EMOJI -> TOOL_EMOJI
                 else -> TOOL_TEXT
             }
@@ -140,20 +144,19 @@ fun EditorScreen(vm: HarfViewModel) {
             if (vm.busy) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
             }
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 10.dp, start = 12.dp, end = 12.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+        }
+
+        // ----- action strip (fixed height, so the canvas never changes size) -----
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .background(HarfBg)
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
                     IconAction(
                         R.drawable.ic_text_add, stringResource(R.string.add_text),
                         { textDialog = DIALOG_ADD },
@@ -174,8 +177,6 @@ fun EditorScreen(vm: HarfViewModel) {
                         IconAction(R.drawable.ic_down, stringResource(R.string.send_backward), { vm.moveSelectedForward(false) })
                         IconAction(R.drawable.ic_trash, stringResource(R.string.delete), { vm.deleteSelected() })
                     }
-                }
-            }
         }
 
         // ----- bottom sheet: panel + tools -----
@@ -215,7 +216,7 @@ fun EditorScreen(vm: HarfViewModel) {
                                     )
                                     Column(Modifier.fillMaxSize()) {
                                         SubTabs(labels, textTab) { textTab = it }
-                                        Spacer(Modifier.height(6.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                         Box(Modifier.fillMaxWidth().weight(1f)) {
                                             when (textTab) {
                                                 0 -> FontPanel(vm, selected)
@@ -254,7 +255,7 @@ fun EditorScreen(vm: HarfViewModel) {
                                     )
                                     Column(Modifier.fillMaxSize()) {
                                         SubTabs(labels, shapeTab) { shapeTab = it }
-                                        Spacer(Modifier.height(6.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                         Box(Modifier.fillMaxWidth().weight(1f)) {
                                             when (shapeTab) {
                                                 0 -> ShapeAddPanel(vm)
@@ -277,13 +278,35 @@ fun EditorScreen(vm: HarfViewModel) {
                                     )
                                     Column(Modifier.fillMaxSize()) {
                                         SubTabs(labels, emojiTab) { emojiTab = it }
-                                        Spacer(Modifier.height(6.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                         Box(Modifier.fillMaxWidth().weight(1f)) {
                                             if (emojiTab == 0) EmojiPanel(vm) else LayoutPanel(vm, selected, project.docW)
                                         }
                                     }
                                 } else {
                                     EmojiPanel(vm)
+                                }
+                            }
+                            TOOL_IMAGE -> {
+                                if (selected != null && selected.type == TYPE_IMAGE) {
+                                    val labels = listOf(
+                                        stringResource(R.string.tab_add),
+                                        stringResource(R.string.tab_layout),
+                                        stringResource(R.string.flip_label),
+                                    )
+                                    Column(Modifier.fillMaxSize()) {
+                                        SubTabs(labels, imageTab) { imageTab = it }
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                        Box(Modifier.fillMaxWidth().weight(1f)) {
+                                            when (imageTab) {
+                                                0 -> ImageAddPanel(vm)
+                                                1 -> LayoutPanel(vm, selected, project.docW)
+                                                else -> ImageFlipPanel(vm, selected)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    ImageAddPanel(vm)
                                 }
                             }
                             else -> LayersPanel(vm, project)
@@ -301,9 +324,10 @@ fun EditorScreen(vm: HarfViewModel) {
                         stringResource(R.string.tool_text),
                         stringResource(R.string.tool_shapes),
                         stringResource(R.string.tool_emoji),
+                        stringResource(R.string.tool_image),
                         stringResource(R.string.tool_layers),
                     )
-                    val toolIcons = listOf(R.drawable.ic_text, R.drawable.ic_shapes, R.drawable.ic_emoji, R.drawable.ic_layers)
+                    val toolIcons = listOf(R.drawable.ic_text, R.drawable.ic_shapes, R.drawable.ic_emoji, R.drawable.ic_image, R.drawable.ic_layers)
                     for (i in toolLabels.indices) {
                         ToolItem(
                             res = toolIcons[i],
@@ -458,7 +482,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, modifier:
                 sh.color = android.graphics.Color.BLACK
                 sh.setShadowLayer(28f / f.scale, 0f, 8f / f.scale, 0xB0000000.toInt())
                 nc.drawRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat(), sh)
-                Renderer.drawDocument(nc, project, photo, selectedId, 1f / f.scale, accent)
+                Renderer.drawDocument(nc, project, photo, vm.images, selectedId, 1f / f.scale, accent)
                 nc.restore()
             }
         }
