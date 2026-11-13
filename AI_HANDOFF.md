@@ -59,3 +59,6 @@ Always-dark theme (Theme.kt), stroke vector icons in res/drawable/ic_*.xml, shar
 
 ## edit3
 Fixed 48dp action strip under the canvas (no floating pill), dividers in panels, TYPE_IMAGE layers (gallery pictures; files session/img_<key>.src, VM.images map, Renderer.drawImage), 5th tool "Image". versionCode 5 / 1.4.
+
+## edit4
+Drawing (TYPE_DRAW layers with Stroke lists; VM.beginStroke/extendStroke/endStroke, stroke-eraser), Photo tool (project-level filter/bright/contrast/sat via ColorMatrix in Renderer; background color for blank canvas), text letterSpacing + gradient fill. 7 tools in a scrollable bar. Not done yet: curved text, crop, perspective, saved-projects list. versionCode 6 / 1.5.

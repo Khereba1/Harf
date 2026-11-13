@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -12,6 +13,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -43,6 +45,15 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     var ready: Boolean by mutableStateOf(false)
         private set
     var fontsVersion: Int by mutableIntStateOf(0)
+        private set
+
+    // ----- brush state (UI-level, not part of the saved project) -----
+    var brushColor: Int by mutableIntStateOf(0xFFFFFFFF.toInt())
+    var brushSize: Float by mutableFloatStateOf(0.02f) // relative to document width
+    var eraser: Boolean by mutableStateOf(false)
+    /** Points of the stroke being drawn right now (x,y pairs); liveTick changes on every point so the canvas redraws. */
+    private val livePoints = ArrayList<Float>()
+    var liveTick: Int by mutableIntStateOf(0)
         private set
 
     /** String resource id of a message the UI should show once (then call clearToast). */
@@ -266,6 +277,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
             p.copy(
                 items = p.items.map { t ->
                     if (t.id == id && !t.locked) {
+                        if (t.type == TYPE_DRAW) return@map t
                         val maxSize = if (t.type == TYPE_TEXT) p.docW * 0.9f else p.docW * 2f
                         t.copy(
                             cx = t.cx + dx,
@@ -400,6 +412,109 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
                 scheduleSave()
             }
             busy = false
+        }
+    }
+
+    /** Generic project-level edit (filters, background, ...). */
+    fun editProject(key: String, fresh: Boolean, change: (Project) -> Project) {
+        edit(key, fresh, change)
+    }
+
+    // ---------- drawing ----------
+
+    fun liveStroke(): Stroke? {
+        if (livePoints.isEmpty() || eraser) return null
+        val p = project ?: return null
+        return Stroke(brushColor, max(1f, brushSize * p.docW), livePoints.toFloatArray())
+    }
+
+    fun beginStroke(x: Float, y: Float) {
+        livePoints.clear()
+        if (eraser) {
+            beginGesture()
+            eraseAt(x, y)
+        } else {
+            livePoints.add(x)
+            livePoints.add(y)
+        }
+        liveTick++
+    }
+
+    fun extendStroke(x: Float, y: Float, minDist: Float) {
+        if (eraser) {
+            eraseAt(x, y)
+            return
+        }
+        val n = livePoints.size
+        if (n >= 2) {
+            val dx = x - livePoints[n - 2]
+            val dy = y - livePoints[n - 1]
+            if (dx * dx + dy * dy < minDist * minDist) return
+        }
+        livePoints.add(x)
+        livePoints.add(y)
+        liveTick++
+    }
+
+    fun endStroke() {
+        val p = project
+        val pts = livePoints.toFloatArray()
+        livePoints.clear()
+        liveTick++
+        if (eraser || p == null || pts.isEmpty()) return
+        val stroke = Stroke(brushColor, max(1f, brushSize * p.docW), pts)
+        // Strokes go into the selected drawing layer, else the top-most one, else a new layer.
+        val target = p.items.firstOrNull { it.id == selectedId && it.type == TYPE_DRAW }
+            ?: p.items.lastOrNull { it.type == TYPE_DRAW }
+        pushUndo(p)
+        coalesceKey = null
+        if (target != null) {
+            project = p.copy(items = p.items.map { if (it.id == target.id) it.copy(strokes = it.strokes + stroke) else it })
+        } else {
+            val id = p.nextId
+            val layer = Layer(id = id, type = TYPE_DRAW, cx = 0f, cy = 0f, size = 1f, strokes = listOf(stroke))
+            project = p.copy(items = p.items + layer, nextId = id + 1L)
+        }
+        scheduleSave()
+    }
+
+    private fun distToSegment(px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: Float): Float {
+        val dx = bx - ax
+        val dy = by - ay
+        val len2 = dx * dx + dy * dy
+        var t = if (len2 == 0f) 0f else ((px - ax) * dx + (py - ay) * dy) / len2
+        if (t < 0f) t = 0f
+        if (t > 1f) t = 1f
+        val cx = ax + t * dx
+        val cy = ay + t * dy
+        return kotlin.math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy))
+    }
+
+    private fun strokeHit(s: Stroke, x: Float, y: Float, radius: Float): Boolean {
+        val n = s.pts.size / 2
+        val reach = radius + s.width / 2f
+        if (n == 1) return distToSegment(x, y, s.pts[0], s.pts[1], s.pts[0], s.pts[1]) <= reach
+        for (i in 0 until n - 1) {
+            if (distToSegment(x, y, s.pts[2 * i], s.pts[2 * i + 1], s.pts[2 * i + 2], s.pts[2 * i + 3]) <= reach) return true
+        }
+        return false
+    }
+
+    /** The eraser removes whole strokes that pass under the finger. */
+    private fun eraseAt(x: Float, y: Float) {
+        val p = project ?: return
+        val radius = max(6f, brushSize * p.docW * 0.5f)
+        var any = false
+        for (l in p.items) {
+            if (l.type == TYPE_DRAW && l.visible && !l.locked && l.strokes.any { strokeHit(it, x, y, radius) }) any = true
+        }
+        if (!any) return
+        edit("erase", false) { cur ->
+            cur.copy(
+                items = cur.items.map { l ->
+                    if (l.type == TYPE_DRAW && l.visible && !l.locked) l.copy(strokes = l.strokes.filter { !strokeHit(it, x, y, radius) }) else l
+                },
+            )
         }
     }
 

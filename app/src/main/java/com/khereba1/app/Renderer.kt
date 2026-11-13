@@ -2,6 +2,11 @@ package com.khereba1.app
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.LinearGradient
+import android.graphics.Path
+import android.graphics.Shader
 import android.graphics.Paint
 import android.graphics.RectF
 import android.text.Layout
@@ -46,6 +51,7 @@ object Renderer {
     fun build(item: Layer, docW: Int): BuiltText {
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         paint.textSize = max(4f, item.size)
+        paint.letterSpacing = item.letterSpacing
         paint.typeface = FontStore.typeface(item.fontKey, item.bold, item.italic)
         val text: CharSequence = if (item.text.isEmpty()) " " else item.text
         val pad = if (item.bgOn) item.bgPad * item.size else 0f
@@ -72,9 +78,94 @@ object Renderer {
         return LayerBox(b.boxW, b.boxH)
     }
 
-    private fun drawLayer(canvas: Canvas, item: Layer, docW: Int, images: Map<String, Bitmap>) {
+    private fun gradientShader(item: Layer, w: Float, h: Float): Shader {
+        val a = Math.toRadians(item.gradAngle.toDouble())
+        val dx = cos(a).toFloat()
+        val dy = sin(a).toFloat()
+        val half = (abs(w * dx) + abs(h * dy)) / 2f
+        val cx = w / 2f
+        val cy = h / 2f
+        return LinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half, item.color, item.gradColor, Shader.TileMode.CLAMP)
+    }
+
+    /** Smooth brush stroke (also used for the live preview while drawing). */
+    fun drawStroke(canvas: Canvas, s: Stroke) {
+        val n = s.pts.size / 2
+        if (n == 0) return
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = s.color
+        if (n == 1) {
+            paint.style = Paint.Style.FILL
+            canvas.drawCircle(s.pts[0], s.pts[1], s.width / 2f, paint)
+            return
+        }
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeJoin = Paint.Join.ROUND
+        paint.strokeWidth = s.width
+        val path = Path()
+        path.moveTo(s.pts[0], s.pts[1])
+        for (i in 1 until n - 1) {
+            val x = s.pts[2 * i]
+            val y = s.pts[2 * i + 1]
+            val nx = s.pts[2 * i + 2]
+            val ny = s.pts[2 * i + 3]
+            path.quadTo(x, y, (x + nx) / 2f, (y + ny) / 2f)
+        }
+        path.lineTo(s.pts[2 * n - 2], s.pts[2 * n - 1])
+        canvas.drawPath(path, paint)
+    }
+
+    private fun drawStrokes(canvas: Canvas, item: Layer, docW: Int, docH: Int) {
+        val alpha = (item.opacity.coerceIn(0f, 1f) * 255f).roundToInt()
+        var layerSaved = -1
+        if (alpha < 255) layerSaved = canvas.saveLayerAlpha(0f, 0f, docW.toFloat(), docH.toFloat(), alpha)
+        for (s in item.strokes) drawStroke(canvas, s)
+        if (layerSaved >= 0) canvas.restoreToCount(layerSaved)
+    }
+
+    private fun colorMatrixOf(p: Project): ColorMatrix? {
+        if (p.filter == 0 && p.bright == 0f && p.contrast == 1f && p.sat == 1f) return null
+        val cm = ColorMatrix()
+        cm.setSaturation(p.sat)
+        when (p.filter) {
+            1 -> cm.postConcat(ColorMatrix().also { it.setSaturation(0f) })
+            2 -> cm.postConcat(ColorMatrix(floatArrayOf(
+                0.393f, 0.769f, 0.189f, 0f, 0f,
+                0.349f, 0.686f, 0.168f, 0f, 0f,
+                0.272f, 0.534f, 0.131f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f)))
+            3 -> cm.postConcat(ColorMatrix().also { it.setSaturation(1.45f) })
+            4 -> cm.postConcat(ColorMatrix(floatArrayOf(
+                0.92f, 0f, 0f, 0f, 0f,
+                0f, 1f, 0f, 0f, 0f,
+                0f, 0f, 1.1f, 0f, 6f,
+                0f, 0f, 0f, 1f, 0f)))
+            5 -> cm.postConcat(ColorMatrix(floatArrayOf(
+                1.1f, 0f, 0f, 0f, 6f,
+                0f, 1f, 0f, 0f, 0f,
+                0f, 0f, 0.9f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f)))
+            6 -> cm.postConcat(ColorMatrix(floatArrayOf(
+                0.85f, 0f, 0f, 0f, 28f,
+                0f, 0.85f, 0f, 0f, 28f,
+                0f, 0f, 0.85f, 0f, 28f,
+                0f, 0f, 0f, 1f, 0f)))
+        }
+        val c = p.contrast
+        val t = (1f - c) * 128f + p.bright * 100f
+        cm.postConcat(ColorMatrix(floatArrayOf(
+            c, 0f, 0f, 0f, t,
+            0f, c, 0f, 0f, t,
+            0f, 0f, c, 0f, t,
+            0f, 0f, 0f, 1f, 0f)))
+        return cm
+    }
+
+    private fun drawLayer(canvas: Canvas, item: Layer, docW: Int, docH: Int, images: Map<String, Bitmap>) {
         if (!item.visible) return
         when (item.type) {
+            TYPE_DRAW -> drawStrokes(canvas, item, docW, docH)
             TYPE_SHAPE -> drawShape(canvas, item)
             TYPE_IMAGE -> drawImage(canvas, item, images[item.imageKey])
             else -> drawText(canvas, item, docW)
@@ -180,12 +271,16 @@ object Renderer {
             p.style = Paint.Style.FILL
             p.clearShadowLayer()
             p.color = item.color
+            if (item.gradOn) p.shader = gradientShader(item, b.layout.width.toFloat(), b.layout.height.toFloat())
             b.layout.draw(canvas)
+            p.shader = null
         } else {
             p.style = Paint.Style.FILL
             p.color = item.color
+            if (item.gradOn) p.shader = gradientShader(item, b.layout.width.toFloat(), b.layout.height.toFloat())
             if (item.shadowOn) p.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor) else p.clearShadowLayer()
             b.layout.draw(canvas)
+            p.shader = null
         }
 
         if (layerSaved >= 0) canvas.restoreToCount(layerSaved)
@@ -238,13 +333,15 @@ object Renderer {
         canvas.drawColor(p.bgColor)
         if (photo != null && !photo.isRecycled) {
             val pp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+            val cm = colorMatrixOf(p)
+            if (cm != null) pp.colorFilter = ColorMatrixColorFilter(cm)
             canvas.drawBitmap(photo, null, RectF(0f, 0f, p.docW.toFloat(), p.docH.toFloat()), pp)
         }
-        for (item in p.items) drawLayer(canvas, item, p.docW, images)
+        for (item in p.items) drawLayer(canvas, item, p.docW, p.docH, images)
         canvas.restoreToCount(saved)
         if (selectedId != null) {
             for (item in p.items) {
-                if (item.id == selectedId && item.visible) drawSelection(canvas, item, p.docW, invScale, selectionColor)
+                if (item.id == selectedId && item.visible && item.type != TYPE_DRAW) drawSelection(canvas, item, p.docW, invScale, selectionColor)
             }
         }
     }
@@ -253,7 +350,7 @@ object Renderer {
     fun hitTest(p: Project, x: Float, y: Float, tolerance: Float): Long? {
         for (i in p.items.indices.reversed()) {
             val item = p.items[i]
-            if (!item.visible || item.locked) continue
+            if (!item.visible || item.locked || item.type == TYPE_DRAW) continue
             val b = boxOf(item, p.docW)
             val dx = x - item.cx
             val dy = y - item.cy

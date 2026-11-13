@@ -26,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -215,6 +216,12 @@ fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
                 range = 0.7f..2f,
                 valueText = pct(item.lineSpacing),
             ) { v -> vm.editItem("lineSpacing", false) { it.copy(lineSpacing = v) } }
+            LabeledSlider(
+                label = stringResource(R.string.spacing_label),
+                value = item.letterSpacing,
+                range = -0.1f..0.6f,
+                valueText = pct(item.letterSpacing),
+            ) { v -> vm.editItem("letterSpacing", false) { it.copy(letterSpacing = v) } }
             Text(stringResource(R.string.alignment), style = MaterialTheme.typography.bodyMedium)
             Row(
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -423,6 +430,154 @@ fun ShapeFillPanel(vm: HarfViewModel, item: Layer) {
     }
 }
 
+@Composable
+fun GradientPanel(vm: HarfViewModel, item: Layer) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+    ) {
+        SwitchRow(stringResource(R.string.gradient_label), item.gradOn) { on ->
+            vm.editItem("gradOn", true) { it.copy(gradOn = on) }
+        }
+        if (item.gradOn) {
+            LabeledSlider(
+                label = stringResource(R.string.angle_label),
+                value = item.gradAngle,
+                range = 0f..360f,
+                valueText = item.gradAngle.roundToInt().toString() + "°",
+            ) { v -> vm.editItem("gradAngle", false) { it.copy(gradAngle = v) } }
+            Text(stringResource(R.string.gradient_color), style = MaterialTheme.typography.bodyMedium)
+            ColorRow(selected = item.gradColor, onPick = { c -> vm.editItem("gradColor", false) { it.copy(gradColor = c) } })
+        }
+    }
+}
+
+/** Brush / eraser controls. Drawing happens on the canvas while this tool is active. */
+@Composable
+fun DrawPanel(vm: HarfViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ToolItem(R.drawable.ic_brush, stringResource(R.string.brush_label), !vm.eraser, { vm.eraser = false })
+            ToolItem(R.drawable.ic_eraser, stringResource(R.string.eraser_label), vm.eraser, { vm.eraser = true })
+            Text(
+                text = stringResource(R.string.draw_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .weight(1f)
+                    .align(Alignment.CenterVertically)
+                    .padding(start = 4.dp),
+            )
+        }
+        LabeledSlider(
+            label = stringResource(R.string.brush_size),
+            value = vm.brushSize,
+            range = 0.004f..0.12f,
+            valueText = pct(vm.brushSize),
+        ) { v -> vm.brushSize = v }
+        if (!vm.eraser) {
+            Text(stringResource(R.string.color_label), style = MaterialTheme.typography.bodyMedium)
+            ColorRow(selected = vm.brushColor, onPick = { c -> vm.brushColor = c })
+        }
+    }
+}
+
+private val FILTER_NAMES = listOf(
+    R.string.filter_none, R.string.filter_bw, R.string.filter_sepia, R.string.filter_vivid,
+    R.string.filter_cool, R.string.filter_warm, R.string.filter_fade,
+)
+
+/** Photo filters, brightness / contrast / saturation, and the canvas background color. */
+@Composable
+fun AdjustPanel(vm: HarfViewModel, project: Project) {
+    val hasPhoto = project.hasPhoto
+    val labels = if (hasPhoto) {
+        listOf(stringResource(R.string.tab_filters), stringResource(R.string.tab_adjust))
+    } else {
+        listOf(stringResource(R.string.tab_background))
+    }
+    var tab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val t = if (tab < labels.size) tab else 0
+    Column(Modifier.fillMaxSize()) {
+        SubTabs(labels, t) { tab = it }
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            if (!hasPhoto) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    ColorRow(
+                        selected = project.bgColor,
+                        onPick = { c -> vm.editProject("bg", false) { it.copy(bgColor = c or 0xFF000000.toInt()) } },
+                    )
+                }
+            } else if (t == 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    for (i in FILTER_NAMES.indices) {
+                        val on = project.filter == i
+                        Box(
+                            modifier = Modifier
+                                .size(width = 92.dp, height = 64.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .border(
+                                    if (on) 2.dp else 1.dp,
+                                    if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                    RoundedCornerShape(12.dp),
+                                )
+                                .clickable { vm.editProject("filter", true) { it.copy(filter = i) } },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = stringResource(FILTER_NAMES[i]),
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp),
+                ) {
+                    LabeledSlider(stringResource(R.string.brightness), project.bright, -1f..1f, pct(project.bright)) { v ->
+                        vm.editProject("bright", false) { it.copy(bright = v) }
+                    }
+                    LabeledSlider(stringResource(R.string.contrast_label), project.contrast, 0.5f..1.5f, pct(project.contrast)) { v ->
+                        vm.editProject("contrast", false) { it.copy(contrast = v) }
+                    }
+                    LabeledSlider(stringResource(R.string.saturation), project.sat, 0f..2f, pct(project.sat)) { v ->
+                        vm.editProject("sat", false) { it.copy(sat = v) }
+                    }
+                    androidx.compose.material3.TextButton(onClick = {
+                        vm.editProject("adjustReset", true) { it.copy(bright = 0f, contrast = 1f, sat = 1f) }
+                    }) { Text(stringResource(R.string.reset_label)) }
+                }
+            }
+        }
+    }
+}
+
 /** Pick a picture from the gallery to add as a layer. */
 @Composable
 fun ImageAddPanel(vm: HarfViewModel) {
@@ -522,6 +677,7 @@ private fun MiniButton(res: Int, desc: String?, tint: Color, onClick: () -> Unit
 fun LayersPanel(vm: HarfViewModel, project: Project) {
     val shapeLabel = stringResource(R.string.layer_shape)
     val imageLabel = stringResource(R.string.layer_image)
+    val drawLabel = stringResource(R.string.layer_drawing)
     val rows = remember(project.items) { project.items.reversed() }
     if (rows.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -541,6 +697,7 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                 val label = when (layer.type) {
                     TYPE_SHAPE -> shapeLabel
                     TYPE_IMAGE -> imageLabel
+                    TYPE_DRAW -> drawLabel
                     else -> layer.text.replace('\n', ' ')
                 }
                 Row(
@@ -556,6 +713,7 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                         when (layer.type) {
                             TYPE_SHAPE -> R.drawable.ic_shapes
                             TYPE_IMAGE -> R.drawable.ic_image
+                            TYPE_DRAW -> R.drawable.ic_brush
                             else -> R.drawable.ic_text
                         },
                         null,

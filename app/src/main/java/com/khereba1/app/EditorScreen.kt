@@ -58,7 +58,9 @@ private const val TOOL_TEXT = 0
 private const val TOOL_SHAPES = 1
 private const val TOOL_EMOJI = 2
 private const val TOOL_IMAGE = 3
-private const val TOOL_LAYERS = 4
+private const val TOOL_DRAW = 4
+private const val TOOL_ADJUST = 5
+private const val TOOL_LAYERS = 6
 
 private const val DIALOG_NONE = 0
 private const val DIALOG_ADD = 1
@@ -90,10 +92,15 @@ fun EditorScreen(vm: HarfViewModel) {
                 tool == TOOL_LAYERS -> TOOL_LAYERS
                 s.type == TYPE_SHAPE -> TOOL_SHAPES
                 s.type == TYPE_IMAGE -> TOOL_IMAGE
+                s.type == TYPE_DRAW -> tool
                 tool == TOOL_EMOJI -> TOOL_EMOJI
                 else -> TOOL_TEXT
             }
         }
+    }
+
+    LaunchedEffect(tool) {
+        if (tool == TOOL_DRAW) vm.select(null)
     }
 
     Column(
@@ -139,6 +146,7 @@ fun EditorScreen(vm: HarfViewModel) {
                     val sel = vm.project?.items?.firstOrNull { it.id == vm.selectedId }
                     if (sel != null && sel.type == TYPE_TEXT) textDialog = DIALOG_EDIT
                 },
+                drawMode = tool == TOOL_DRAW,
                 modifier = Modifier.fillMaxSize(),
             )
             if (vm.busy) {
@@ -213,6 +221,7 @@ fun EditorScreen(vm: HarfViewModel) {
                                         stringResource(R.string.tab_outline),
                                         stringResource(R.string.tab_shadow),
                                         stringResource(R.string.tab_box),
+                                        stringResource(R.string.tab_gradient),
                                     )
                                     Column(Modifier.fillMaxSize()) {
                                         SubTabs(labels, textTab) { textTab = it }
@@ -224,7 +233,8 @@ fun EditorScreen(vm: HarfViewModel) {
                                                 2 -> LayoutPanel(vm, selected, project.docW)
                                                 3 -> OutlinePanel(vm, selected)
                                                 4 -> ShadowPanel(vm, selected)
-                                                else -> BoxPanel(vm, selected)
+                                                5 -> BoxPanel(vm, selected)
+                                                else -> GradientPanel(vm, selected)
                                             }
                                         }
                                     }
@@ -309,6 +319,8 @@ fun EditorScreen(vm: HarfViewModel) {
                                     ImageAddPanel(vm)
                                 }
                             }
+                            TOOL_DRAW -> DrawPanel(vm)
+                            TOOL_ADJUST -> AdjustPanel(vm, project)
                             else -> LayersPanel(vm, project)
                         }
                     }
@@ -317,17 +329,20 @@ fun EditorScreen(vm: HarfViewModel) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     val toolLabels = listOf(
                         stringResource(R.string.tool_text),
                         stringResource(R.string.tool_shapes),
                         stringResource(R.string.tool_emoji),
                         stringResource(R.string.tool_image),
+                        stringResource(R.string.tool_draw),
+                        stringResource(R.string.tool_adjust),
                         stringResource(R.string.tool_layers),
                     )
-                    val toolIcons = listOf(R.drawable.ic_text, R.drawable.ic_shapes, R.drawable.ic_emoji, R.drawable.ic_image, R.drawable.ic_layers)
+                    val toolIcons = listOf(R.drawable.ic_text, R.drawable.ic_shapes, R.drawable.ic_emoji, R.drawable.ic_image, R.drawable.ic_brush, R.drawable.ic_adjust, R.drawable.ic_layers)
                     for (i in toolLabels.indices) {
                         ToolItem(
                             res = toolIcons[i],
@@ -416,19 +431,36 @@ private fun shareImage(context: Context, uri: Uri) {
  * pinch to resize and twist to rotate, tapping empty space deselects, double tap edits the text.
  */
 @Composable
-private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, modifier: Modifier) {
+private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode: Boolean, modifier: Modifier) {
     val accent = MaterialTheme.colorScheme.primary.toArgb()
     val project = vm.project
     val photo = vm.photo
     val selectedId = vm.selectedId
     val editState = rememberUpdatedState(onEditRequest)
+    val drawState = rememberUpdatedState(drawMode)
+    val liveTick = vm.liveTick // read so the canvas redraws while a stroke grows
 
     Canvas(
         modifier = modifier.pointerInput(Unit) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val proj = vm.project
-                if (proj != null) {
+                if (proj != null && drawState.value) {
+                    val fd = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
+                    down.consume()
+                    vm.beginStroke((down.position.x - fd.ox) / fd.scale, (down.position.y - fd.oy) / fd.scale)
+                    var go = true
+                    while (go) {
+                        val ev = awaitPointerEvent()
+                        val ch = ev.changes.firstOrNull { it.id == down.id } ?: ev.changes.first()
+                        if (ch.positionChanged()) {
+                            vm.extendStroke((ch.position.x - fd.ox) / fd.scale, (ch.position.y - fd.oy) / fd.scale, 2f / fd.scale)
+                            ch.consume()
+                        }
+                        go = ev.changes.any { it.pressed }
+                    }
+                    vm.endStroke()
+                } else if (proj != null) {
                     val f0 = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
                     val docX = (down.position.x - f0.ox) / f0.scale
                     val docY = (down.position.y - f0.oy) / f0.scale
@@ -483,6 +515,13 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, modifier:
                 sh.setShadowLayer(28f / f.scale, 0f, 8f / f.scale, 0xB0000000.toInt())
                 nc.drawRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat(), sh)
                 Renderer.drawDocument(nc, project, photo, vm.images, selectedId, 1f / f.scale, accent)
+                val live = vm.liveStroke()
+                if (live != null && liveTick >= 0) {
+                    nc.save()
+                    nc.clipRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat())
+                    Renderer.drawStroke(nc, live)
+                    nc.restore()
+                }
                 nc.restore()
             }
         }

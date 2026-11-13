@@ -11,6 +11,10 @@ const val ALIGN_END = 2
 const val TYPE_TEXT = 0
 const val TYPE_SHAPE = 1
 const val TYPE_IMAGE = 2
+const val TYPE_DRAW = 3
+
+/** One brush stroke: points are x0,y0,x1,y1,... in document pixels. */
+class Stroke(val color: Int, val width: Float, val pts: FloatArray)
 
 /**
  * One layer on the canvas: a text (emoji are texts too) or a vector shape.
@@ -36,11 +40,17 @@ data class Layer(
     val italic: Boolean = false,
     val align: Int = ALIGN_CENTER,
     val lineSpacing: Float = 1f,
+    val letterSpacing: Float = 0f, // in em
+    val gradOn: Boolean = false,
+    val gradColor: Int = 0xFFFFC107.toInt(),
+    val gradAngle: Float = 90f,
     // --- shape ---
     val shapeKind: Int = 0,
     val aspect: Float = 1f,
     val corner: Float = 0.2f,
     val fillOn: Boolean = true,
+    // --- drawing (type = TYPE_DRAW) ---
+    val strokes: List<Stroke> = emptyList(),
     // --- image (size = width, height = size * aspect; corner = rounding) ---
     val imageKey: String = "",
     val flipX: Boolean = false,
@@ -68,6 +78,10 @@ data class Project(
     val hasPhoto: Boolean,
     val items: List<Layer>,
     val nextId: Long,
+    val bright: Float = 0f,
+    val contrast: Float = 1f,
+    val sat: Float = 1f,
+    val filter: Int = 0,
 )
 
 private fun JSONObject.f(key: String, def: Float): Float = optDouble(key, def.toDouble()).toFloat()
@@ -90,6 +104,23 @@ fun layerToJson(t: Layer): JSONObject {
     o.put("italic", t.italic)
     o.put("align", t.align)
     o.put("lineSpacing", t.lineSpacing.toDouble())
+    o.put("letterSpacing", t.letterSpacing.toDouble())
+    o.put("gradOn", t.gradOn)
+    o.put("gradColor", t.gradColor)
+    o.put("gradAngle", t.gradAngle.toDouble())
+    if (t.strokes.isNotEmpty()) {
+        val sa = JSONArray()
+        for (s in t.strokes) {
+            val so = JSONObject()
+            so.put("c", s.color)
+            so.put("w", s.width.toDouble())
+            val pa = JSONArray()
+            for (v in s.pts) pa.put(Math.round(v * 10f) / 10.0)
+            so.put("p", pa)
+            sa.put(so)
+        }
+        o.put("strokes", sa)
+    }
     o.put("shapeKind", t.shapeKind)
     o.put("aspect", t.aspect.toDouble())
     o.put("corner", t.corner.toDouble())
@@ -109,6 +140,19 @@ fun layerToJson(t: Layer): JSONObject {
     o.put("bgPad", t.bgPad.toDouble())
     o.put("bgRadius", t.bgRadius.toDouble())
     return o
+}
+
+private fun strokesFromJson(arr: JSONArray?): List<Stroke> {
+    if (arr == null) return emptyList()
+    val out = ArrayList<Stroke>()
+    for (i in 0 until arr.length()) {
+        val so = arr.optJSONObject(i) ?: continue
+        val pa = so.optJSONArray("p") ?: continue
+        val pts = FloatArray(pa.length())
+        for (j in 0 until pa.length()) pts[j] = pa.optDouble(j, 0.0).toFloat()
+        out.add(Stroke(so.optInt("c", 0xFF000000.toInt()), so.optDouble("w", 8.0).toFloat(), pts))
+    }
+    return out
 }
 
 fun layerFromJson(o: JSONObject): Layer {
@@ -131,6 +175,11 @@ fun layerFromJson(o: JSONObject): Layer {
         italic = o.optBoolean("italic", d.italic),
         align = o.optInt("align", d.align),
         lineSpacing = o.f("lineSpacing", d.lineSpacing),
+        letterSpacing = o.f("letterSpacing", d.letterSpacing),
+        gradOn = o.optBoolean("gradOn", d.gradOn),
+        gradColor = o.optInt("gradColor", d.gradColor),
+        gradAngle = o.f("gradAngle", d.gradAngle),
+        strokes = strokesFromJson(o.optJSONArray("strokes")),
         shapeKind = o.optInt("shapeKind", d.shapeKind),
         aspect = o.f("aspect", d.aspect),
         corner = o.f("corner", d.corner),
@@ -160,6 +209,10 @@ fun projectToJson(p: Project): JSONObject {
     o.put("bgColor", p.bgColor)
     o.put("hasPhoto", p.hasPhoto)
     o.put("nextId", p.nextId)
+    o.put("bright", p.bright.toDouble())
+    o.put("contrast", p.contrast.toDouble())
+    o.put("sat", p.sat.toDouble())
+    o.put("filter", p.filter)
     val arr = JSONArray()
     for (t in p.items) arr.put(layerToJson(t))
     o.put("items", arr)
@@ -182,6 +235,10 @@ fun projectFromJson(o: JSONObject): Project {
         docH = o.optInt("docH", 1080),
         bgColor = o.optInt("bgColor", Color.WHITE),
         hasPhoto = o.optBoolean("hasPhoto", false),
+        bright = o.f("bright", 0f),
+        contrast = o.f("contrast", 1f),
+        sat = o.f("sat", 1f),
+        filter = o.optInt("filter", 0),
         items = items,
         nextId = maxOf(o.optLong("nextId", 1L), maxId + 1L),
     )
