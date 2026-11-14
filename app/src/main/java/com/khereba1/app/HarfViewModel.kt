@@ -160,42 +160,167 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     private var saveJob: Job? = null
     private var userStarted = false
 
+    private fun loadSession(ctx: Application): Restored? {
+        return try {
+            val p = Session.load(ctx)
+            if (p == null) {
+                null
+            } else {
+                val imgs = HashMap<String, Bitmap>()
+                for (l in p.items) {
+                    if (l.type == TYPE_IMAGE && l.imageKey.isNotEmpty() && !imgs.containsKey(l.imageKey)) {
+                        val ib = ImageIO.decode(Session.imageFileFor(ctx, l.imageKey), IMAGE_LAYER_SIDE)
+                        if (ib != null) imgs[l.imageKey] = ib
+                    }
+                }
+                if (p.hasPhoto) {
+                    val b = ImageIO.decode(Session.photoFile(ctx))
+                    if (b == null) null else Restored(p, b, imgs)
+                } else {
+                    Restored(p, null, imgs)
+                }
+            }
+        } catch (e: Throwable) {
+            AppLog.log("SESSION", "Restore failed", e)
+            null
+        }
+    }
+
     init {
         viewModelScope.launch {
             val ctx = getApplication<Application>()
-            val restored: Restored? = withContext(Dispatchers.IO) {
-                try {
-                    val p = Session.load(ctx)
-                    if (p == null) {
-                        null
-                    } else {
-                        val imgs = HashMap<String, Bitmap>()
-                        for (l in p.items) {
-                            if (l.type == TYPE_IMAGE && l.imageKey.isNotEmpty() && !imgs.containsKey(l.imageKey)) {
-                                val ib = ImageIO.decode(Session.imageFileFor(ctx, l.imageKey), IMAGE_LAYER_SIDE)
-                                if (ib != null) imgs[l.imageKey] = ib
-                            }
-                        }
-                        if (p.hasPhoto) {
-                            val b = ImageIO.decode(Session.photoFile(ctx))
-                            if (b == null) null else Restored(p, b, imgs)
-                        } else {
-                            Restored(p, null, imgs)
-                        }
-                    }
-                } catch (e: Throwable) {
-                    AppLog.log("SESSION", "Restore failed", e)
-                    null
-                }
-            }
+            val restored: Restored? = withContext(Dispatchers.IO) { loadSession(ctx) }
             if (restored != null && !userStarted && project == null) {
                 project = restored.project
                 photo = restored.photo
                 images = restored.images
+                currentId = withContext(Dispatchers.IO) { Session.getCurrentId(ctx) }
             }
             ready = true
+            refreshSaved()
         }
     }
+
+    // ---------- saved projects ----------
+
+    var saved: List<SavedInfo> by mutableStateOf(emptyList())
+        private set
+    /** Id of the saved project that the open document belongs to, if any. */
+    var currentId: String? by mutableStateOf(null)
+        private set
+
+    fun refreshSaved() {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            saved = withContext(Dispatchers.IO) { ProjectStore.list(ctx) }
+        }
+    }
+
+    /** Saves the open document into "My projects" (first time: a new entry, afterwards the same one). */
+    fun saveProject(onDone: (() -> Unit)? = null) {
+        val p = project ?: return
+        val ph = photo
+        val imgs = images
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val ok = withContext(Dispatchers.IO) {
+                Session.save(ctx, p)
+                val existing = ProjectStore.list(ctx)
+                val id = currentId ?: ProjectStore.newId()
+                val name = existing.firstOrNull { it.id == id }?.name
+                    ?: ("Harf " + java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.US).format(java.util.Date()))
+                val done = ProjectStore.save(ctx, id, name, p, ph, imgs)
+                if (done) Session.setCurrentId(ctx, id)
+                if (done) id else null
+            }
+            if (ok != null) {
+                currentId = ok
+                toastRes = R.string.project_saved
+                saved = withContext(Dispatchers.IO) { ProjectStore.list(ctx) }
+                onDone?.invoke()
+            } else {
+                toastRes = R.string.err_save_project
+            }
+        }
+    }
+
+    fun openProject(id: String) {
+        if (busy) return
+        busy = true
+        userStarted = true
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val restored: Restored? = withContext(Dispatchers.IO) {
+                if (ProjectStore.openInto(ctx, id)) {
+                    Session.setCurrentId(ctx, id)
+                    loadSession(ctx)
+                } else {
+                    null
+                }
+            }
+            if (restored != null) {
+                resetHistory()
+                images = restored.images
+                photo = restored.photo
+                project = restored.project
+                selectedId = null
+                currentId = id
+            } else {
+                toastRes = R.string.err_open_project
+            }
+            busy = false
+        }
+    }
+
+    fun deleteSaved(id: String) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            withContext(Dispatchers.IO) { ProjectStore.delete(ctx, id) }
+            if (currentId == id) {
+                currentId = null
+                withContext(Dispatchers.IO) { Session.setCurrentId(ctx, null) }
+            }
+            saved = withContext(Dispatchers.IO) { ProjectStore.list(ctx) }
+        }
+    }
+
+    fun renameSaved(id: String, name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            withContext(Dispatchers.IO) { ProjectStore.rename(ctx, id, clean) }
+            saved = withContext(Dispatchers.IO) { ProjectStore.list(ctx) }
+        }
+    }
+
+    /** Writes a .harf file into Downloads/Harf and hands its uri to [onShare]. */
+    fun exportSaved(id: String, name: String, onShare: (Uri) -> Unit) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val uri = withContext(Dispatchers.IO) { ProjectStore.exportFile(ctx, id, name) }
+            if (uri != null) {
+                toastRes = R.string.project_exported
+                onShare(uri)
+            } else {
+                toastRes = R.string.err_export_project
+            }
+        }
+    }
+
+    fun importProject(uri: Uri) {
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val id = withContext(Dispatchers.IO) { ProjectStore.importFile(ctx, uri) }
+            if (id != null) {
+                toastRes = R.string.project_imported
+                saved = withContext(Dispatchers.IO) { ProjectStore.list(ctx) }
+            } else {
+                toastRes = R.string.err_import_project
+            }
+        }
+    }
+
 
     fun clearToast() {
         toastRes = null
@@ -222,6 +347,8 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
             } else {
                 resetHistory()
                 Session.clearImages(ctx)
+                Session.setCurrentId(ctx, null)
+                currentId = null
                 images = emptyMap()
                 photo = bmp
                 project = Project(bmp.width, bmp.height, Color.WHITE, true, emptyList(), 1L)
@@ -240,6 +367,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         project = Project(width, height, color or 0xFF000000.toInt(), false, emptyList(), 1L)
         selectedId = null
         Session.clear(getApplication<Application>())
+        currentId = null
         saveNow()
     }
 
@@ -252,6 +380,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         images = emptyMap()
         selectedId = null
         Session.clear(getApplication<Application>())
+        currentId = null
     }
 
     private fun resetHistory() {

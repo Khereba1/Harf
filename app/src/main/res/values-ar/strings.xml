@@ -132,4 +132,19 @@
     <string name="eyedropper_label">التقاط لون من الصورة</string>
     <string name="pick_hint">اضغط واسحب على الصورة، وارفع صابعك عشان تلتقط اللون</string>
     <string name="hex_label">كود اللون (Hex)</string>
+    <string name="my_projects">مشاريعي</string>
+    <string name="projects_empty">لسه مفيش مشاريع محفوظة. اضغط على أيقونة الحفظ في المحرر عشان تحفظ مشروعك هنا.</string>
+    <string name="project_saved">اتحفظ المشروع</string>
+    <string name="save_project">حفظ المشروع</string>
+    <string name="save_and_close">حفظ وإغلاق</string>
+    <string name="rename_project">تغيير الاسم</string>
+    <string name="export_project">تصدير ملف .harf</string>
+    <string name="delete_project">حذف المشروع ده؟</string>
+    <string name="import_project">استيراد ملف .harf</string>
+    <string name="project_exported">اتحفظ في Downloads/Harf</string>
+    <string name="project_imported">اتستورد المشروع</string>
+    <string name="err_save_project">مقدرناش نحفظ المشروع</string>
+    <string name="err_open_project">مقدرناش نفتح المشروع</string>
+    <string name="err_export_project">مقدرناش نصدّر المشروع</string>
+    <string name="err_import_project">الملف ده مش مشروع حرف صالح</string>
 </resources>

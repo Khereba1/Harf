@@ -62,7 +62,7 @@ private val PALETTE: IntArray = intArrayOf(
 
 /** A card-style dialog container used by the custom dialogs below. */
 @Composable
-private fun CardDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+internal fun CardDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(24.dp),

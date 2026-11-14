@@ -364,6 +364,23 @@ object Renderer {
         return null
     }
 
+    /** A small copy of the finished picture, longest side [maxSide], for the project list. */
+    fun thumbnail(p: Project, photo: Bitmap?, images: Map<String, Bitmap>, maxSide: Int): Bitmap? {
+        return try {
+            val s = maxSide.toFloat() / max(p.docW, p.docH).toFloat()
+            val w = max(1, (p.docW * s).roundToInt())
+            val h = max(1, (p.docH * s).roundToInt())
+            val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(out)
+            canvas.scale(w.toFloat() / p.docW, h.toFloat() / p.docH)
+            drawDocument(canvas, p, photo, images, null, 1f, 0)
+            out
+        } catch (e: Throwable) {
+            AppLog.log("EXPORT", "Thumbnail failed", e)
+            null
+        }
+    }
+
     /** Renders the final image. Returns null if there is not enough memory. */
     fun exportBitmap(p: Project, photo: Bitmap?, images: Map<String, Bitmap>): Bitmap? {
         return try {

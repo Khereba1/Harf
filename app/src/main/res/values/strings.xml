@@ -135,4 +135,19 @@
     <string name="eyedropper_label">Pick a color from the image</string>
     <string name="pick_hint">Press and drag on the image, lift your finger to pick</string>
     <string name="hex_label">Hex code</string>
+    <string name="my_projects">My projects</string>
+    <string name="projects_empty">No saved projects yet. Tap the save icon in the editor to keep a project here.</string>
+    <string name="project_saved">Project saved</string>
+    <string name="save_project">Save project</string>
+    <string name="save_and_close">Save and close</string>
+    <string name="rename_project">Rename</string>
+    <string name="export_project">Export .harf file</string>
+    <string name="delete_project">Delete this project?</string>
+    <string name="import_project">Import .harf file</string>
+    <string name="project_exported">Saved to Downloads/Harf</string>
+    <string name="project_imported">Project imported</string>
+    <string name="err_save_project">Could not save the project</string>
+    <string name="err_open_project">Could not open the project</string>
+    <string name="err_export_project">Could not export the project</string>
+    <string name="err_import_project">This file is not a valid Harf project</string>
 </resources>

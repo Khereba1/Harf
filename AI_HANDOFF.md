@@ -71,3 +71,6 @@ Color tools: ColorRow shows current color + hex (tap to edit), eyedropper (VM.pi
 
 ## edit7
 Eyedropper now live: press+drag shows a magnifier loupe (21x21 samples, nearest-neighbour) with ring in the picked color and a hex label; color is applied on finger lift (VM.pickMove/pickAt). versionCode 9 / 1.8.
+
+## edit8
+My projects: ProjectStore (filesDir/projects/<id>/ with project.json, photo.src, img_*.src, meta.json, thumb.jpg), VM.saveProject/openProject/rename/delete/export/import, ".harf" = zip of that folder (own format, NOT PixelLab .plp), ProjectsUi.kt dialog, save icon in editor, 3-way close dialog. versionCode 10 / 1.9.

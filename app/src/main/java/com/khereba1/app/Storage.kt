@@ -26,6 +26,26 @@ object Session {
     fun photoFile(ctx: Context): File = File(dir(ctx), "photo.src")
     private fun jsonFile(ctx: Context): File = File(dir(ctx), "project.json")
 
+    private fun idFile(ctx: Context): File = File(dir(ctx), "current.id")
+
+    /** Id of the saved project the open document belongs to (null: not saved yet). */
+    fun getCurrentId(ctx: Context): String? {
+        return try {
+            val f = idFile(ctx)
+            if (f.exists()) f.readText().trim().ifEmpty { null } else null
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    fun setCurrentId(ctx: Context, id: String?) {
+        try {
+            if (id == null) idFile(ctx).delete() else idFile(ctx).writeText(id)
+        } catch (e: Throwable) {
+            AppLog.log("SESSION", "Writing current id failed", e)
+        }
+    }
+
     fun save(ctx: Context, p: Project) {
         try {
             val tmp = File(dir(ctx), "project.tmp")
@@ -53,6 +73,7 @@ object Session {
         try {
             jsonFile(ctx).delete()
             photoFile(ctx).delete()
+            idFile(ctx).delete()
             clearImages(ctx)
         } catch (e: Throwable) {
             AppLog.log("SESSION", "Clear failed", e)

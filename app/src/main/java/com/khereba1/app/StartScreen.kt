@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 fun StartScreen(vm: HarfViewModel, onLanguage: (String) -> Unit) {
     val context = LocalContext.current
     var showBlank by remember { mutableStateOf(false) }
+    var showProjects by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri != null) vm.startPhoto(uri)
@@ -116,6 +117,18 @@ fun StartScreen(vm: HarfViewModel, onLanguage: (String) -> Unit) {
                 Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.blank_canvas))
             }
+            OutlinedButton(
+                onClick = { showProjects = true },
+                enabled = !vm.busy,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+            ) {
+                HIcon(R.drawable.ic_folder, null)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.my_projects))
+            }
             if (vm.busy) CircularProgressIndicator()
         }
         IconAction(
@@ -127,6 +140,9 @@ fun StartScreen(vm: HarfViewModel, onLanguage: (String) -> Unit) {
         )
     }
 
+    if (showProjects) {
+        ProjectsDialog(vm = vm, onDismiss = { showProjects = false })
+    }
     if (showBlank) {
         BlankCanvasDialog(
             onDismiss = { showBlank = false },

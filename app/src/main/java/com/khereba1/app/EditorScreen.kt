@@ -108,6 +108,7 @@ fun EditorScreen(vm: HarfViewModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconAction(R.drawable.ic_close, stringResource(R.string.close), { showClose = true })
+            IconAction(R.drawable.ic_save, stringResource(R.string.save_project), { vm.saveProject() })
             Spacer(Modifier.weight(1f))
             IconAction(R.drawable.ic_undo, stringResource(R.string.undo), { vm.undo() }, enabled = vm.undoDepth > 0)
             IconAction(R.drawable.ic_redo, stringResource(R.string.redo), { vm.redo() }, enabled = vm.redoDepth > 0)
@@ -308,14 +309,28 @@ fun EditorScreen(vm: HarfViewModel) {
         )
     }
     if (showClose) {
-        ConfirmDialog(
-            title = stringResource(R.string.close_confirm_title),
-            message = stringResource(R.string.close_confirm_msg),
-            confirmLabel = stringResource(R.string.discard),
-            onDismiss = { showClose = false },
-            onConfirm = {
-                showClose = false
-                vm.closeProject()
+        androidx.compose.material3.AlertDialog(
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+            onDismissRequest = { showClose = false },
+            title = { Text(stringResource(R.string.close_confirm_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.close_confirm_msg))
+                    androidx.compose.material3.TextButton(onClick = {
+                        showClose = false
+                        vm.closeProject()
+                    }) { Text(stringResource(R.string.discard)) }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showClose = false
+                    vm.saveProject { vm.closeProject() }
+                }) { Text(stringResource(R.string.save_and_close)) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showClose = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
