@@ -108,7 +108,7 @@
     <string name="brush_label">Brush</string>
     <string name="eraser_label">Eraser</string>
     <string name="brush_size">Brush size</string>
-    <string name="draw_hint">Draw with your finger. The eraser removes whole strokes.</string>
+    <string name="draw_hint">Draw with your finger. The eraser rubs out only the spot you touch.</string>
     <string name="layer_drawing">Drawing</string>
     <string name="tab_filters">Filters</string>
     <string name="tab_adjust">Adjust</string>
@@ -127,4 +127,9 @@
     <string name="gradient_label">Gradient fill</string>
     <string name="gradient_color">Second color</string>
     <string name="angle_label">Angle</string>
+    <string name="tool_edit">Edit</string>
+    <string name="tool_add">Add</string>
+    <string name="eraser_size">Eraser size</string>
+    <string name="erase_whole">Erase the whole stroke</string>
+    <string name="hint_draw_layer">This is a drawing layer. Use the Draw tab to add or erase strokes.</string>
 </resources>

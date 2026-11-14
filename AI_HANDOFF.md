@@ -62,3 +62,6 @@ Fixed 48dp action strip under the canvas (no floating pill), dividers in panels,
 
 ## edit4
 Drawing (TYPE_DRAW layers with Stroke lists; VM.beginStroke/extendStroke/endStroke, stroke-eraser), Photo tool (project-level filter/bright/contrast/sat via ColorMatrix in Renderer; background color for blank canvas), text letterSpacing + gradient fill. 7 tools in a scrollable bar. Not done yet: curved text, crop, perspective, saved-projects list. versionCode 6 / 1.5.
+
+## edit5
+Pixel eraser (cutStroke; option erase whole stroke), real layer thumbnails (LayerThumb), tools regrouped into 5 main tabs Edit/Add/Draw/Photo/Layers with sub-tabs (ToolPanels.kt). Tapping a layer on canvas opens Edit (canvasPickTick). versionCode 7 / 1.6.

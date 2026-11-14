@@ -48,10 +48,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.items
 import kotlin.math.roundToInt
 
-private fun pct(v: Float): String = (v * 100f).roundToInt().toString() + "%"
+internal fun pct(v: Float): String = (v * 100f).roundToInt().toString() + "%"
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
+internal fun SwitchRow(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -454,41 +454,6 @@ fun GradientPanel(vm: HarfViewModel, item: Layer) {
     }
 }
 
-/** Brush / eraser controls. Drawing happens on the canvas while this tool is active. */
-@Composable
-fun DrawPanel(vm: HarfViewModel) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToolItem(R.drawable.ic_brush, stringResource(R.string.brush_label), !vm.eraser, { vm.eraser = false })
-            ToolItem(R.drawable.ic_eraser, stringResource(R.string.eraser_label), vm.eraser, { vm.eraser = true })
-            Text(
-                text = stringResource(R.string.draw_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .weight(1f)
-                    .align(Alignment.CenterVertically)
-                    .padding(start = 4.dp),
-            )
-        }
-        LabeledSlider(
-            label = stringResource(R.string.brush_size),
-            value = vm.brushSize,
-            range = 0.004f..0.12f,
-            valueText = pct(vm.brushSize),
-        ) { v -> vm.brushSize = v }
-        if (!vm.eraser) {
-            Text(stringResource(R.string.color_label), style = MaterialTheme.typography.bodyMedium)
-            ColorRow(selected = vm.brushColor, onPick = { c -> vm.brushColor = c })
-        }
-    }
-}
-
 private val FILTER_NAMES = listOf(
     R.string.filter_none, R.string.filter_bw, R.string.filter_sepia, R.string.filter_vivid,
     R.string.filter_cool, R.string.filter_warm, R.string.filter_fade,
@@ -672,6 +637,99 @@ private fun MiniButton(res: Int, desc: String?, tint: Color, onClick: () -> Unit
     }
 }
 
+/** Small preview of what a layer looks like (used in the Layers list). */
+@Composable
+fun LayerThumb(layer: Layer, images: Map<String, android.graphics.Bitmap>) {
+    Canvas(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF6B717C)),
+    ) {
+        drawIntoCanvas { c ->
+            val nc = c.nativeCanvas
+            val pad = size.width * 0.1f
+            val aw = size.width - 2f * pad
+            val ah = size.height - 2f * pad
+            nc.save()
+            nc.translate(pad, pad)
+            when (layer.type) {
+                TYPE_IMAGE -> {
+                    val bmp = images[layer.imageKey]
+                    if (bmp != null && !bmp.isRecycled) {
+                        val s = kotlin.math.min(aw / bmp.width, ah / bmp.height)
+                        val dw = bmp.width * s
+                        val dh = bmp.height * s
+                        val rect = android.graphics.RectF((aw - dw) / 2f, (ah - dh) / 2f, (aw + dw) / 2f, (ah + dh) / 2f)
+                        nc.drawBitmap(bmp, null, rect, android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG))
+                    }
+                }
+                TYPE_SHAPE -> {
+                    val ratio = if (layer.aspect > 0.05f) layer.aspect else 1f
+                    var pw = aw
+                    var ph = aw * ratio
+                    if (ph > ah) {
+                        ph = ah
+                        pw = ah / ratio
+                    }
+                    nc.translate((aw - pw) / 2f, (ah - ph) / 2f)
+                    val path = Shapes.build(layer.shapeKind, pw, ph, layer.corner)
+                    if (layer.fillOn) {
+                        val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                        fill.color = layer.color
+                        nc.drawPath(path, fill)
+                    }
+                    if (layer.strokeOn || !layer.fillOn) {
+                        val line = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                        line.style = android.graphics.Paint.Style.STROKE
+                        line.strokeWidth = 2f
+                        line.color = if (layer.strokeOn) layer.strokeColor else layer.color
+                        nc.drawPath(path, line)
+                    }
+                }
+                TYPE_DRAW -> {
+                    var minX = Float.MAX_VALUE
+                    var minY = Float.MAX_VALUE
+                    var maxX = -Float.MAX_VALUE
+                    var maxY = -Float.MAX_VALUE
+                    for (s in layer.strokes) {
+                        var i = 0
+                        while (i + 1 < s.pts.size) {
+                            if (s.pts[i] < minX) minX = s.pts[i]
+                            if (s.pts[i] > maxX) maxX = s.pts[i]
+                            if (s.pts[i + 1] < minY) minY = s.pts[i + 1]
+                            if (s.pts[i + 1] > maxY) maxY = s.pts[i + 1]
+                            i += 2
+                        }
+                    }
+                    if (maxX >= minX && maxY >= minY) {
+                        val bw = kotlin.math.max(1f, maxX - minX)
+                        val bh = kotlin.math.max(1f, maxY - minY)
+                        val sc = kotlin.math.min(aw / bw, ah / bh)
+                        nc.translate((aw - bw * sc) / 2f, (ah - bh * sc) / 2f)
+                        nc.scale(sc, sc)
+                        nc.translate(-minX, -minY)
+                        for (s in layer.strokes) Renderer.drawStroke(nc, Stroke(s.color, kotlin.math.max(s.width, 1.5f / sc), s.pts))
+                    }
+                }
+                else -> {
+                    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    paint.typeface = FontStore.typeface(layer.fontKey, layer.bold, layer.italic)
+                    paint.color = layer.color or 0xFF000000.toInt()
+                    paint.textSize = ah * 0.6f
+                    val line = layer.text.lineSequence().firstOrNull() ?: ""
+                    val tw = paint.measureText(line)
+                    if (tw > aw && tw > 0f) paint.textSize = paint.textSize * aw / tw
+                    val w2 = paint.measureText(line)
+                    val fm = paint.fontMetrics
+                    nc.drawText(line, (aw - w2) / 2f, ah / 2f - (fm.ascent + fm.descent) / 2f, paint)
+                }
+            }
+            nc.restore()
+        }
+    }
+}
+
 /** All layers, top-most first: select, reorder, hide, lock, delete. */
 @Composable
 fun LayersPanel(vm: HarfViewModel, project: Project) {
@@ -706,23 +764,13 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                         .clip(RoundedCornerShape(10.dp))
                         .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                         .clickable { vm.select(layer.id) }
-                        .padding(start = 10.dp),
+                        .padding(start = 8.dp, top = 3.dp, bottom = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    HIcon(
-                        when (layer.type) {
-                            TYPE_SHAPE -> R.drawable.ic_shapes
-                            TYPE_IMAGE -> R.drawable.ic_image
-                            TYPE_DRAW -> R.drawable.ic_brush
-                            else -> R.drawable.ic_text
-                        },
-                        null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        size = 18.dp,
-                    )
+                    LayerThumb(layer, vm.images)
                     Text(
                         text = label,
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodyMedium,

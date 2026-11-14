@@ -51,6 +51,11 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     var brushColor: Int by mutableIntStateOf(0xFFFFFFFF.toInt())
     var brushSize: Float by mutableFloatStateOf(0.02f) // relative to document width
     var eraser: Boolean by mutableStateOf(false)
+    var eraserSize: Float by mutableFloatStateOf(0.05f) // diameter, relative to document width
+    var eraseWhole: Boolean by mutableStateOf(false) // true: the eraser removes whole strokes
+    /** Changes whenever the user taps a layer on the canvas (the editor then opens the Edit tab). */
+    var canvasPickTick: Int by mutableIntStateOf(0)
+        private set
     /** Points of the stroke being drawn right now (x,y pairs); liveTick changes on every point so the canvas redraws. */
     private val livePoints = ArrayList<Float>()
     var liveTick: Int by mutableIntStateOf(0)
@@ -237,6 +242,10 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
 
     fun select(id: Long?) {
         selectedId = id
+    }
+
+    fun notifyCanvasPick() {
+        canvasPickTick = canvasPickTick + 1
     }
 
     fun addText(text: String) {
@@ -428,10 +437,18 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         return Stroke(brushColor, max(1f, brushSize * p.docW), livePoints.toFloatArray())
     }
 
+    /** Where the eraser is right now (x, y in document pixels) while it is being dragged, else null. */
+    fun eraserCursor(): FloatArray? {
+        if (!eraser || livePoints.size < 2) return null
+        return floatArrayOf(livePoints[0], livePoints[1])
+    }
+
     fun beginStroke(x: Float, y: Float) {
         livePoints.clear()
         if (eraser) {
             beginGesture()
+            livePoints.add(x)
+            livePoints.add(y)
             eraseAt(x, y)
         } else {
             livePoints.add(x)
@@ -442,7 +459,11 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
 
     fun extendStroke(x: Float, y: Float, minDist: Float) {
         if (eraser) {
+            livePoints.clear()
+            livePoints.add(x)
+            livePoints.add(y)
             eraseAt(x, y)
+            liveTick++
             return
         }
         val n = livePoints.size
@@ -500,10 +521,58 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         return false
     }
 
-    /** The eraser removes whole strokes that pass under the finger. */
+    /** Cuts [s] where the eraser circle (center x,y; radius) touches it. Returns the surviving pieces. */
+    private fun cutStroke(s: Stroke, x: Float, y: Float, radius: Float): List<Stroke> {
+        val reach = radius + s.width / 2f
+        val n = s.pts.size / 2
+        val dense = ArrayList<Float>()
+        dense.add(s.pts[0])
+        dense.add(s.pts[1])
+        for (i in 0 until n - 1) {
+            val ax = s.pts[2 * i]
+            val ay = s.pts[2 * i + 1]
+            val bx = s.pts[2 * i + 2]
+            val by = s.pts[2 * i + 3]
+            val len = kotlin.math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay))
+            if (len > 0f && distToSegment(x, y, ax, ay, bx, by) < reach) {
+                val k = kotlin.math.ceil(len / (reach * 0.5f)).toInt().coerceIn(1, 64)
+                for (j in 1..k) {
+                    val t = j.toFloat() / k.toFloat()
+                    dense.add(ax + (bx - ax) * t)
+                    dense.add(ay + (by - ay) * t)
+                }
+            } else {
+                dense.add(bx)
+                dense.add(by)
+            }
+        }
+        val out = ArrayList<Stroke>()
+        var run = ArrayList<Float>()
+        val m = dense.size / 2
+        for (i in 0 until m) {
+            val px = dense[2 * i]
+            val py = dense[2 * i + 1]
+            val dx = px - x
+            val dy = py - y
+            if (dx * dx + dy * dy < reach * reach) {
+                if (run.isNotEmpty()) {
+                    out.add(Stroke(s.color, s.width, run.toFloatArray()))
+                    run = ArrayList()
+                }
+            } else {
+                run.add(px)
+                run.add(py)
+            }
+        }
+        if (run.isNotEmpty()) out.add(Stroke(s.color, s.width, run.toFloatArray()))
+        return out
+    }
+
+    /** Erases under the finger: either just that spot (default) or whole strokes. */
     private fun eraseAt(x: Float, y: Float) {
         val p = project ?: return
-        val radius = max(6f, brushSize * p.docW * 0.5f)
+        val radius = max(4f, eraserSize * p.docW * 0.5f)
+        val whole = eraseWhole
         var any = false
         for (l in p.items) {
             if (l.type == TYPE_DRAW && l.visible && !l.locked && l.strokes.any { strokeHit(it, x, y, radius) }) any = true
@@ -512,7 +581,19 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         edit("erase", false) { cur ->
             cur.copy(
                 items = cur.items.map { l ->
-                    if (l.type == TYPE_DRAW && l.visible && !l.locked) l.copy(strokes = l.strokes.filter { !strokeHit(it, x, y, radius) }) else l
+                    if (l.type == TYPE_DRAW && l.visible && !l.locked) {
+                        val next = ArrayList<Stroke>()
+                        for (s in l.strokes) {
+                            if (!strokeHit(s, x, y, radius)) {
+                                next.add(s)
+                            } else if (!whole) {
+                                next.addAll(cutStroke(s, x, y, radius))
+                            }
+                        }
+                        l.copy(strokes = next)
+                    } else {
+                        l
+                    }
                 },
             )
         }

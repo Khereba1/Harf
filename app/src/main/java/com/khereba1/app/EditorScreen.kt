@@ -54,13 +54,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-private const val TOOL_TEXT = 0
-private const val TOOL_SHAPES = 1
-private const val TOOL_EMOJI = 2
-private const val TOOL_IMAGE = 3
-private const val TOOL_DRAW = 4
-private const val TOOL_ADJUST = 5
-private const val TOOL_LAYERS = 6
+private const val TOOL_EDIT = 0
+private const val TOOL_ADD = 1
+private const val TOOL_DRAW = 2
+private const val TOOL_PHOTO = 3
+private const val TOOL_LAYERS = 4
 
 private const val DIALOG_NONE = 0
 private const val DIALOG_ADD = 1
@@ -71,32 +69,24 @@ private const val DIALOG_EDIT = 2
 fun EditorScreen(vm: HarfViewModel) {
     val project = vm.project ?: return
     val context = LocalContext.current
-    var tool by remember { mutableIntStateOf(TOOL_TEXT) }
+    var tool by remember { mutableIntStateOf(TOOL_ADD) }
     var panelOpen by remember { mutableStateOf(true) }
-    var textTab by remember { mutableIntStateOf(0) }
-    var shapeTab by remember { mutableIntStateOf(0) }
-    var emojiTab by remember { mutableIntStateOf(0) }
-    var imageTab by remember { mutableIntStateOf(0) }
     var textDialog by remember { mutableIntStateOf(DIALOG_NONE) }
     var showExport by remember { mutableStateOf(false) }
     var showClose by remember { mutableStateOf(false) }
     val selectedId = vm.selectedId
     val selected: Layer? = project.items.firstOrNull { it.id == selectedId }
 
-    // Selecting a layer on the canvas opens the matching tool (the Layers tool stays as it is).
+    // Tapping a layer on the canvas opens the Edit tab (unless drawing or browsing layers).
+    LaunchedEffect(vm.canvasPickTick) {
+        if (vm.canvasPickTick > 0 && tool != TOOL_LAYERS && tool != TOOL_DRAW) {
+            tool = TOOL_EDIT
+            panelOpen = true
+        }
+    }
     LaunchedEffect(selectedId) {
         val s = project.items.firstOrNull { it.id == selectedId }
         if (textDialog == DIALOG_EDIT && (s == null || s.type != TYPE_TEXT)) textDialog = DIALOG_NONE
-        if (s != null) {
-            tool = when {
-                tool == TOOL_LAYERS -> TOOL_LAYERS
-                s.type == TYPE_SHAPE -> TOOL_SHAPES
-                s.type == TYPE_IMAGE -> TOOL_IMAGE
-                s.type == TYPE_DRAW -> tool
-                tool == TOOL_EMOJI -> TOOL_EMOJI
-                else -> TOOL_TEXT
-            }
-        }
     }
 
     LaunchedEffect(tool) {
@@ -212,115 +202,10 @@ fun EditorScreen(vm: HarfViewModel) {
                             .padding(top = 4.dp),
                     ) {
                         when (tool) {
-                            TOOL_TEXT -> {
-                                if (selected != null && selected.type == TYPE_TEXT) {
-                                    val labels = listOf(
-                                        stringResource(R.string.tab_font),
-                                        stringResource(R.string.tab_color),
-                                        stringResource(R.string.tab_layout),
-                                        stringResource(R.string.tab_outline),
-                                        stringResource(R.string.tab_shadow),
-                                        stringResource(R.string.tab_box),
-                                        stringResource(R.string.tab_gradient),
-                                    )
-                                    Column(Modifier.fillMaxSize()) {
-                                        SubTabs(labels, textTab) { textTab = it }
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                        Box(Modifier.fillMaxWidth().weight(1f)) {
-                                            when (textTab) {
-                                                0 -> FontPanel(vm, selected)
-                                                1 -> ColorPanel(vm, selected, stringResource(R.string.text_color))
-                                                2 -> LayoutPanel(vm, selected, project.docW)
-                                                3 -> OutlinePanel(vm, selected)
-                                                4 -> ShadowPanel(vm, selected)
-                                                5 -> BoxPanel(vm, selected)
-                                                else -> GradientPanel(vm, selected)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(horizontal = 24.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.hint_empty),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            textAlign = TextAlign.Center,
-                                        )
-                                    }
-                                }
-                            }
-                            TOOL_SHAPES -> {
-                                if (selected != null && selected.type == TYPE_SHAPE) {
-                                    val labels = listOf(
-                                        stringResource(R.string.tab_add),
-                                        stringResource(R.string.tab_fill),
-                                        stringResource(R.string.tab_layout),
-                                        stringResource(R.string.tab_outline),
-                                        stringResource(R.string.tab_shadow),
-                                    )
-                                    Column(Modifier.fillMaxSize()) {
-                                        SubTabs(labels, shapeTab) { shapeTab = it }
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                        Box(Modifier.fillMaxWidth().weight(1f)) {
-                                            when (shapeTab) {
-                                                0 -> ShapeAddPanel(vm)
-                                                1 -> ShapeFillPanel(vm, selected)
-                                                2 -> LayoutPanel(vm, selected, project.docW)
-                                                3 -> OutlinePanel(vm, selected)
-                                                else -> ShadowPanel(vm, selected)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    ShapeAddPanel(vm)
-                                }
-                            }
-                            TOOL_EMOJI -> {
-                                if (selected != null && selected.type == TYPE_TEXT) {
-                                    val labels = listOf(
-                                        stringResource(R.string.tab_add),
-                                        stringResource(R.string.tab_layout),
-                                    )
-                                    Column(Modifier.fillMaxSize()) {
-                                        SubTabs(labels, emojiTab) { emojiTab = it }
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                        Box(Modifier.fillMaxWidth().weight(1f)) {
-                                            if (emojiTab == 0) EmojiPanel(vm) else LayoutPanel(vm, selected, project.docW)
-                                        }
-                                    }
-                                } else {
-                                    EmojiPanel(vm)
-                                }
-                            }
-                            TOOL_IMAGE -> {
-                                if (selected != null && selected.type == TYPE_IMAGE) {
-                                    val labels = listOf(
-                                        stringResource(R.string.tab_add),
-                                        stringResource(R.string.tab_layout),
-                                        stringResource(R.string.flip_label),
-                                    )
-                                    Column(Modifier.fillMaxSize()) {
-                                        SubTabs(labels, imageTab) { imageTab = it }
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                        Box(Modifier.fillMaxWidth().weight(1f)) {
-                                            when (imageTab) {
-                                                0 -> ImageAddPanel(vm)
-                                                1 -> LayoutPanel(vm, selected, project.docW)
-                                                else -> ImageFlipPanel(vm, selected)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    ImageAddPanel(vm)
-                                }
-                            }
+                            TOOL_EDIT -> EditPanel(vm, project, selected)
+                            TOOL_ADD -> AddPanel(vm) { textDialog = DIALOG_ADD }
                             TOOL_DRAW -> DrawPanel(vm)
-                            TOOL_ADJUST -> AdjustPanel(vm, project)
+                            TOOL_PHOTO -> AdjustPanel(vm, project)
                             else -> LayersPanel(vm, project)
                         }
                     }
@@ -329,20 +214,17 @@ fun EditorScreen(vm: HarfViewModel) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
                     val toolLabels = listOf(
-                        stringResource(R.string.tool_text),
-                        stringResource(R.string.tool_shapes),
-                        stringResource(R.string.tool_emoji),
-                        stringResource(R.string.tool_image),
+                        stringResource(R.string.tool_edit),
+                        stringResource(R.string.tool_add),
                         stringResource(R.string.tool_draw),
                         stringResource(R.string.tool_adjust),
                         stringResource(R.string.tool_layers),
                     )
-                    val toolIcons = listOf(R.drawable.ic_text, R.drawable.ic_shapes, R.drawable.ic_emoji, R.drawable.ic_image, R.drawable.ic_brush, R.drawable.ic_adjust, R.drawable.ic_layers)
+                    val toolIcons = listOf(R.drawable.ic_edit, R.drawable.ic_plus, R.drawable.ic_brush, R.drawable.ic_adjust, R.drawable.ic_layers)
                     for (i in toolLabels.indices) {
                         ToolItem(
                             res = toolIcons[i],
@@ -371,7 +253,8 @@ fun EditorScreen(vm: HarfViewModel) {
             onDismiss = { textDialog = DIALOG_NONE },
             onConfirm = { t ->
                 textDialog = DIALOG_NONE
-                tool = TOOL_TEXT
+                tool = TOOL_EDIT
+                panelOpen = true
                 vm.addText(t)
             },
         )
@@ -466,6 +349,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     val docY = (down.position.y - f0.oy) / f0.scale
                     val hit = Renderer.hitTest(proj, docX, docY, 24f / f0.scale)
                     vm.select(hit)
+                    if (hit != null) vm.notifyCanvasPick()
                     vm.beginGesture()
                     val slop = viewConfiguration.touchSlop
                     var travelled = 0f
@@ -515,6 +399,15 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                 sh.setShadowLayer(28f / f.scale, 0f, 8f / f.scale, 0xB0000000.toInt())
                 nc.drawRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat(), sh)
                 Renderer.drawDocument(nc, project, photo, vm.images, selectedId, 1f / f.scale, accent)
+                val cursor = vm.eraserCursor()
+                if (cursor != null) {
+                    val ring = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    ring.style = android.graphics.Paint.Style.STROKE
+                    ring.strokeWidth = 2f / f.scale
+                    ring.color = 0xFFFFFFFF.toInt()
+                    val er = kotlin.math.max(4f, vm.eraserSize * project.docW * 0.5f)
+                    nc.drawCircle(cursor[0], cursor[1], er, ring)
+                }
                 val live = vm.liveStroke()
                 if (live != null && liveTick >= 0) {
                     nc.save()
