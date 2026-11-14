@@ -348,6 +348,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
     val editState = rememberUpdatedState(onEditRequest)
     val drawState = rememberUpdatedState(drawMode)
     val liveTick = vm.liveTick // read so the canvas redraws while a stroke grows
+    val pickTick = vm.pickTick // same for the color-picker magnifier
 
     Canvas(
         modifier = modifier.pointerInput(Unit) {
@@ -358,11 +359,15 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     val fp = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
                     down.consume()
                     var last = down.position
+                    vm.pickMove((last.x - fp.ox) / fp.scale, (last.y - fp.oy) / fp.scale, last.x, last.y, fp.scale)
                     var go = true
                     while (go) {
                         val ev = awaitPointerEvent()
                         val ch = ev.changes.firstOrNull { it.id == down.id } ?: ev.changes.first()
-                        last = ch.position
+                        if (ch.pressed) {
+                            last = ch.position
+                            vm.pickMove((last.x - fp.ox) / fp.scale, (last.y - fp.oy) / fp.scale, last.x, last.y, fp.scale)
+                        }
                         ch.consume()
                         go = ev.changes.any { it.pressed }
                     }
@@ -455,6 +460,60 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     nc.restore()
                 }
                 nc.restore()
+                val loupeBmp = vm.loupe()
+                if (vm.pickActive && pickTick >= 0 && loupeBmp != null) {
+                    val dp = density
+                    val r = 52f * dp
+                    val margin = 8f * dp
+                    val cx = vm.pickViewX.coerceIn(r + margin, kotlin.math.max(r + margin, size.width - r - margin))
+                    var cy = vm.pickViewY - 110f * dp
+                    val above = cy - r >= margin
+                    if (!above) cy = vm.pickViewY + 110f * dp
+                    val clip = android.graphics.Path()
+                    clip.addCircle(cx, cy, r, android.graphics.Path.Direction.CW)
+                    nc.save()
+                    nc.clipPath(clip)
+                    val bp = android.graphics.Paint()
+                    bp.isFilterBitmap = false
+                    nc.drawBitmap(loupeBmp, null, android.graphics.RectF(cx - r, cy - r, cx + r, cy + r), bp)
+                    val cell = 2f * r / loupeBmp.width
+                    val box = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    box.style = android.graphics.Paint.Style.STROKE
+                    box.strokeWidth = 2f * dp
+                    box.color = 0xFF000000.toInt()
+                    nc.drawRect(cx - cell / 2f, cy - cell / 2f, cx + cell / 2f, cy + cell / 2f, box)
+                    box.strokeWidth = 1f * dp
+                    box.color = 0xFFFFFFFF.toInt()
+                    nc.drawRect(cx - cell / 2f, cy - cell / 2f, cx + cell / 2f, cy + cell / 2f, box)
+                    nc.restore()
+                    val ring = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    ring.style = android.graphics.Paint.Style.STROKE
+                    ring.strokeWidth = 4f * dp
+                    ring.color = vm.pickColor
+                    nc.drawCircle(cx, cy, r, ring)
+                    ring.strokeWidth = 1.5f * dp
+                    ring.color = 0xFFFFFFFF.toInt()
+                    nc.drawCircle(cx, cy, r + 2.5f * dp, ring)
+                    // label: swatch + hex code
+                    val tp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    tp.textSize = 14f * dp
+                    tp.color = 0xFFFFFFFF.toInt()
+                    tp.typeface = android.graphics.Typeface.MONOSPACE
+                    val label = hexOf(vm.pickColor)
+                    val tw = tp.measureText(label)
+                    val lw = tw + 44f * dp
+                    val lh = 30f * dp
+                    val ly = if (above) cy + r + 10f * dp else cy - r - 10f * dp - lh
+                    val lx = (cx - lw / 2f).coerceIn(margin, kotlin.math.max(margin, size.width - lw - margin))
+                    val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    bg.color = 0xE6101216.toInt()
+                    nc.drawRoundRect(android.graphics.RectF(lx, ly, lx + lw, ly + lh), lh / 2f, lh / 2f, bg)
+                    val sw = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    sw.color = vm.pickColor
+                    nc.drawCircle(lx + 15f * dp, ly + lh / 2f, 8f * dp, sw)
+                    val fm = tp.fontMetrics
+                    nc.drawText(label, lx + 30f * dp, ly + lh / 2f - (fm.ascent + fm.descent) / 2f, tp)
+                }
             }
         }
     }

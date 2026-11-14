@@ -130,6 +130,6 @@
     <string name="erase_whole">امسح الخط كله</string>
     <string name="hint_draw_layer">ده طبقة رسم. استخدم أداة الرسم لإضافة أو مسح الخطوط.</string>
     <string name="eyedropper_label">التقاط لون من الصورة</string>
-    <string name="pick_hint">المس أي مكان في الصورة لالتقاط اللون</string>
+    <string name="pick_hint">اضغط واسحب على الصورة، وارفع صابعك عشان تلتقط اللون</string>
     <string name="hex_label">كود اللون (Hex)</string>
 </resources>

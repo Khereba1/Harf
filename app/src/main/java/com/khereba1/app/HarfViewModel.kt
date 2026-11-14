@@ -66,15 +66,25 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelPick() {
         pickCallback = null
         picking = false
+        pickActive = false
     }
 
-    /** Samples the finished picture (photo + all layers) at a document point and hands the color to the waiting callback. */
-    fun pickAt(x: Float, y: Float) {
-        val p = project
-        val cb = pickCallback
-        pickCallback = null
-        picking = false
-        if (p == null || cb == null) return
+    // ----- live loupe while the finger is down in pick mode -----
+    var pickActive: Boolean by mutableStateOf(false)
+        private set
+    var pickColor: Int by mutableIntStateOf(0)
+        private set
+    var pickTick: Int by mutableIntStateOf(0)
+        private set
+    var pickViewX: Float = 0f
+        private set
+    var pickViewY: Float = 0f
+        private set
+    private var loupeBmp: Bitmap? = null
+    fun loupe(): Bitmap? = loupeBmp
+
+    /** Color of the finished picture (photo + all layers, no selection handles) at a document point. */
+    private fun sampleDoc(p: Project, x: Float, y: Float): Int {
         val xi = x.toInt().coerceIn(0, p.docW - 1)
         val yi = y.toInt().coerceIn(0, p.docH - 1)
         var px = 0xFF000000.toInt()
@@ -88,7 +98,43 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         } catch (e: Throwable) {
             AppLog.log("PICK", "Color pick failed", e)
         }
-        cb(px or 0xFF000000.toInt())
+        return px or 0xFF000000.toInt()
+    }
+
+    /**
+     * Called while the finger moves in pick mode: updates the magnifier (a small zoomed view of
+     * the area under the finger) and the color it is on. [scale] is view pixels per document pixel.
+     */
+    fun pickMove(docX: Float, docY: Float, viewX: Float, viewY: Float, scale: Float) {
+        val p = project ?: return
+        pickColor = sampleDoc(p, docX, docY)
+        try {
+            val n = 21
+            val bmp = loupeBmp ?: Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888).also { loupeBmp = it }
+            bmp.eraseColor(0xFF2A2E36.toInt())
+            val c = android.graphics.Canvas(bmp)
+            val region = n.toFloat() * max(1f, 2f / scale)
+            c.scale(n.toFloat() / region, n.toFloat() / region)
+            c.translate(-(docX - region / 2f), -(docY - region / 2f))
+            Renderer.drawDocument(c, p, photo, images, null, 1f, 0)
+        } catch (e: Throwable) {
+            AppLog.log("PICK", "Loupe failed", e)
+        }
+        pickViewX = viewX
+        pickViewY = viewY
+        pickActive = true
+        pickTick = pickTick + 1
+    }
+
+    /** Finger lifted: hands the color under it to the waiting callback and leaves pick mode. */
+    fun pickAt(x: Float, y: Float) {
+        val p = project
+        val cb = pickCallback
+        pickCallback = null
+        picking = false
+        pickActive = false
+        if (p == null || cb == null) return
+        cb(sampleDoc(p, x, y))
     }
 
     /** Changes whenever the user taps a layer on the canvas (the editor then opens the Edit tab). */

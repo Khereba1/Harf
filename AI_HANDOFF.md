@@ -68,3 +68,6 @@ Pixel eraser (cutStroke; option erase whole stroke), real layer thumbnails (Laye
 
 ## edit6
 Color tools: ColorRow shows current color + hex (tap to edit), eyedropper (VM.picking/pickAt samples the rendered doc at a point, LocalEyedropper provided by EditorScreen), hex field in ColorPickerDialog. versionCode 8 / 1.7.
+
+## edit7
+Eyedropper now live: press+drag shows a magnifier loupe (21x21 samples, nearest-neighbour) with ring in the picked color and a hex label; color is applied on finger lift (VM.pickMove/pickAt). versionCode 9 / 1.8.
