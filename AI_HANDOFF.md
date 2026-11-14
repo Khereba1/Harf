@@ -77,3 +77,6 @@ My projects: ProjectStore (filesDir/projects/<id>/ with project.json, photo.src,
 
 ## edit9
 Curved text (Layer.curve, Renderer.buildCurved/drawGlyphs/drawTextOnPath) and non-destructive crop (Project.offX/offY/fullW/fullH, VM crop state, CropPanel in the Photo tab, overlay + handle gestures in EditorCanvas). versionCode 11 / 2.0.
+
+## edit10
+Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and snapping guides while dragging (VM.transformSelected raw tracking, guideX/guideY, snaps to doc center/edges). versionCode 12 / 2.1.

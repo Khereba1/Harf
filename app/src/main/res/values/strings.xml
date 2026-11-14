@@ -154,4 +154,5 @@
     <string name="tab_crop">Crop</string>
     <string name="crop_free">Free</string>
     <string name="crop_apply">Apply crop</string>
+    <string name="tab_styles">Styles</string>
 </resources>

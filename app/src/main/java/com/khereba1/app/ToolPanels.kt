@@ -66,6 +66,7 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
     } else if (selected.type == TYPE_TEXT) {
         val labels = listOf(
             stringResource(R.string.tab_font),
+            stringResource(R.string.tab_styles),
             stringResource(R.string.tab_color),
             stringResource(R.string.tab_layout),
             stringResource(R.string.tab_outline),
@@ -77,11 +78,12 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
         TabbedPanel(labels, textTab, { textTab = it }) { t ->
             when (t) {
                 0 -> FontPanel(vm, selected)
-                1 -> ColorPanel(vm, selected, colorLabel)
-                2 -> LayoutPanel(vm, selected, project.docW)
-                3 -> OutlinePanel(vm, selected)
-                4 -> ShadowPanel(vm, selected)
-                5 -> BoxPanel(vm, selected)
+                1 -> StylesPanel(vm, selected)
+                2 -> ColorPanel(vm, selected, colorLabel)
+                3 -> LayoutPanel(vm, selected, project.docW)
+                4 -> OutlinePanel(vm, selected)
+                5 -> ShadowPanel(vm, selected)
+                6 -> BoxPanel(vm, selected)
                 else -> GradientPanel(vm, selected)
             }
         }

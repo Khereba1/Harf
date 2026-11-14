@@ -151,4 +151,5 @@
     <string name="tab_crop">قص</string>
     <string name="crop_free">حر</string>
     <string name="crop_apply">تطبيق القص</string>
+    <string name="tab_styles">أنماط</string>
 </resources>

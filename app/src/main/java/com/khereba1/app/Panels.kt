@@ -625,6 +625,47 @@ fun AdjustPanel(vm: HarfViewModel, project: Project) {
     }
 }
 
+/** Ready-made text looks, drawn as small previews. Tap one to apply it to the selected text. */
+@Composable
+fun StylesPanel(vm: HarfViewModel, item: Layer) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(88.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        items(TextStyles.all.size) { i ->
+            val def = TextStyles.all[i]
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF5A6070))
+                    .clickable { vm.editItem("style", true) { s -> def.apply(s) } },
+            ) {
+                drawIntoCanvas { c ->
+                    val nc = c.nativeCanvas
+                    val sample = def.apply(
+                        Layer(
+                            id = 0L, cx = 0f, cy = 0f, size = 48f, text = "Aa",
+                            fontKey = item.fontKey, bold = true,
+                        ),
+                    )
+                    val box = Renderer.boxOf(sample, 400)
+                    val s = kotlin.math.min(size.width * 0.7f / box.w, size.height * 0.72f / box.h)
+                    nc.save()
+                    nc.translate(size.width / 2f, size.height / 2f)
+                    nc.scale(s, s)
+                    Renderer.drawItem(nc, sample, 400, 400)
+                    nc.restore()
+                }
+            }
+        }
+    }
+}
+
 /** Pick a picture from the gallery to add as a layer. */
 @Composable
 fun ImageAddPanel(vm: HarfViewModel) {

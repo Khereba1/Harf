@@ -143,6 +143,11 @@ object Renderer {
         return LayerBox(b.boxW, b.boxH)
     }
 
+    /** Draws one layer (used by previews such as the text style tiles). */
+    fun drawItem(canvas: Canvas, item: Layer, docW: Int, docH: Int) {
+        drawLayer(canvas, item, docW, docH, emptyMap())
+    }
+
     private fun gradientShader(item: Layer, w: Float, h: Float): Shader {
         val a = Math.toRadians(item.gradAngle.toDouble())
         val dx = cos(a).toFloat()

@@ -552,6 +552,10 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
 
     fun beginGesture() {
         coalesceKey = null
+        val sel = project?.items?.firstOrNull { it.id == selectedId }
+        rawX = sel?.cx ?: 0f
+        rawY = sel?.cy ?: 0f
+        endGesture()
     }
 
     fun undo() {
@@ -628,17 +632,84 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun transformSelected(dx: Float, dy: Float, zoom: Float, rotationDeg: Float) {
+    // ----- snapping while dragging -----
+    /** Document x / y of the guide line to show while a layer is snapped (null = none). */
+    var guideX: Float? by mutableStateOf(null)
+        private set
+    var guideY: Float? by mutableStateOf(null)
+        private set
+    private var rawX = 0f
+    private var rawY = 0f
+
+    fun endGesture() {
+        guideX = null
+        guideY = null
+    }
+
+    private fun snapAxis(raw: Float, half: Float, total: Float, thr: Float, edges: Boolean): Pair<Float, Float?> {
+        var best = raw
+        var line: Float? = null
+        var bestD = thr
+        val dc = kotlin.math.abs(raw - total / 2f)
+        if (dc < bestD) {
+            bestD = dc
+            best = total / 2f
+            line = total / 2f
+        }
+        if (edges) {
+            val dl = kotlin.math.abs(raw - half)
+            if (dl < bestD) {
+                bestD = dl
+                best = half
+                line = 0f
+            }
+            val dr = kotlin.math.abs(raw + half - total)
+            if (dr < bestD) {
+                best = total - half
+                line = total
+            }
+        }
+        return Pair(best, line)
+    }
+
+    private fun normalizeAngle(a: Float): Float {
+        var r = a % 360f
+        if (r > 180f) r -= 360f
+        if (r < -180f) r += 360f
+        return r
+    }
+
+    fun transformSelected(dx: Float, dy: Float, zoom: Float, rotationDeg: Float, snap: Float = 0f) {
         val id = selectedId ?: return
+        val cur = project ?: return
+        val t0 = cur.items.firstOrNull { it.id == id } ?: return
+        if (t0.locked || t0.type == TYPE_DRAW) return
+        rawX += dx
+        rawY += dy
+        var nx = rawX
+        var ny = rawY
+        var gx: Float? = null
+        var gy: Float? = null
+        if (snap > 0f) {
+            val box = Renderer.boxOf(t0, cur.docW)
+            val edges = kotlin.math.abs(t0.rotation) < 0.5f
+            val sx = snapAxis(rawX, box.w / 2f, cur.docW.toFloat(), snap, edges)
+            val sy = snapAxis(rawY, box.h / 2f, cur.docH.toFloat(), snap, edges)
+            nx = sx.first
+            ny = sy.first
+            gx = sx.second
+            gy = sy.second
+        }
+        guideX = gx
+        guideY = gy
         edit("gesture", false) { p ->
             p.copy(
                 items = p.items.map { t ->
                     if (t.id == id && !t.locked) {
-                        if (t.type == TYPE_DRAW) return@map t
                         val maxSize = if (t.type == TYPE_TEXT) p.docW * 0.9f else p.docW * 2f
                         t.copy(
-                            cx = t.cx + dx,
-                            cy = t.cy + dy,
+                            cx = nx,
+                            cy = ny,
                             size = (t.size * zoom).coerceIn(6f, maxSize),
                             rotation = normalizeAngle(t.rotation + rotationDeg),
                         )
@@ -648,12 +719,6 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
                 },
             )
         }
-    }
-
-    private fun normalizeAngle(a: Float): Float {
-        var r = (a + 180f) % 360f
-        if (r < 0f) r += 360f
-        return r - 180f
     }
 
     fun deleteSelected() {

@@ -476,7 +476,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         val f = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
                         if (hit != null && (multi || travelled > slop)) {
                             if (pan != Offset.Zero || zoom != 1f || rot != 0f) {
-                                vm.transformSelected(pan.x / f.scale, pan.y / f.scale, zoom, rot)
+                                vm.transformSelected(pan.x / f.scale, pan.y / f.scale, zoom, rot, 8f / f.scale)
                             }
                             for (change in ev.changes) {
                                 if (change.positionChanged()) change.consume()
@@ -484,6 +484,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         }
                         go = ev.changes.any { it.pressed }
                     }
+                    vm.endGesture()
                     if (!multi && travelled <= slop) {
                         val now = System.currentTimeMillis()
                         if (hit != null && hit == vm.lastTapId && now - vm.lastTapAt < 350L) {
@@ -510,6 +511,16 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                 sh.setShadowLayer(28f / f.scale, 0f, 8f / f.scale, 0xB0000000.toInt())
                 nc.drawRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat(), sh)
                 Renderer.drawDocument(nc, project, photo, vm.images, selectedId, 1f / f.scale, accent)
+                val gX = vm.guideX
+                val gY = vm.guideY
+                if (gX != null || gY != null) {
+                    val gp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    gp.style = android.graphics.Paint.Style.STROKE
+                    gp.strokeWidth = 1.5f / f.scale
+                    gp.color = accent
+                    if (gX != null) nc.drawLine(gX, 0f, gX, project.docH.toFloat(), gp)
+                    if (gY != null) nc.drawLine(0f, gY, project.docW.toFloat(), gY, gp)
+                }
                 val cursor = vm.eraserCursor()
                 if (cursor != null) {
                     val ring = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
