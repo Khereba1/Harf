@@ -222,6 +222,12 @@ fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
                 range = -0.1f..0.6f,
                 valueText = pct(item.letterSpacing),
             ) { v -> vm.editItem("letterSpacing", false) { it.copy(letterSpacing = v) } }
+            LabeledSlider(
+                label = stringResource(R.string.curve_label),
+                value = item.curve,
+                range = -1f..1f,
+                valueText = pct(item.curve),
+            ) { v -> vm.editItem("curve", false) { it.copy(curve = v) } }
             Text(stringResource(R.string.alignment), style = MaterialTheme.typography.bodyMedium)
             Row(
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -454,6 +460,75 @@ fun GradientPanel(vm: HarfViewModel, item: Layer) {
     }
 }
 
+private val CROP_RATIOS = listOf(
+    "" to 0f, "1:1" to 1f, "4:3" to 4f / 3f, "3:4" to 3f / 4f, "16:9" to 16f / 9f,
+    "9:16" to 9f / 16f, "3:2" to 3f / 2f, "2:3" to 2f / 3f,
+)
+
+/** Crop controls: ratio presets, size readout, reset and apply. The rectangle itself is dragged on the canvas. */
+@Composable
+fun CropPanel(vm: HarfViewModel) {
+    val c = vm.crop
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            for ((label, ratio) in CROP_RATIOS) {
+                val on = vm.cropRatio == ratio
+                Box(
+                    modifier = Modifier
+                        .size(width = 64.dp, height = 40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(
+                            if (on) 2.dp else 1.dp,
+                            if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            RoundedCornerShape(10.dp),
+                        )
+                        .clickable { if (ratio == 0f) vm.beginCrop() else vm.setCropRatio(ratio) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (label.isEmpty()) stringResource(R.string.crop_free) else label,
+                        fontSize = 13.sp,
+                        color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (c != null) {
+                Text(
+                    text = Math.round(c.r - c.l).toString() + " × " + Math.round(c.b - c.t).toString(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            }
+            androidx.compose.material3.TextButton(onClick = { vm.beginCrop() }) { Text(stringResource(R.string.reset_label)) }
+            androidx.compose.material3.Button(
+                onClick = { vm.applyCrop() },
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.crop_apply)) }
+        }
+    }
+}
+
 private val FILTER_NAMES = listOf(
     R.string.filter_none, R.string.filter_bw, R.string.filter_sepia, R.string.filter_vivid,
     R.string.filter_cool, R.string.filter_warm, R.string.filter_fade,
@@ -464,17 +539,24 @@ private val FILTER_NAMES = listOf(
 fun AdjustPanel(vm: HarfViewModel, project: Project) {
     val hasPhoto = project.hasPhoto
     val labels = if (hasPhoto) {
-        listOf(stringResource(R.string.tab_filters), stringResource(R.string.tab_adjust))
+        listOf(stringResource(R.string.tab_filters), stringResource(R.string.tab_adjust), stringResource(R.string.tab_crop))
     } else {
-        listOf(stringResource(R.string.tab_background))
+        listOf(stringResource(R.string.tab_background), stringResource(R.string.tab_crop))
     }
     var tab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val t = if (tab < labels.size) tab else 0
+    val onCropTab = t == labels.size - 1
+    androidx.compose.runtime.DisposableEffect(onCropTab) {
+        if (onCropTab) vm.beginCrop()
+        onDispose { vm.endCrop() }
+    }
     Column(Modifier.fillMaxSize()) {
         SubTabs(labels, t) { tab = it }
         androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Box(Modifier.fillMaxWidth().weight(1f)) {
-            if (!hasPhoto) {
+            if (onCropTab) {
+                CropPanel(vm)
+            } else if (!hasPhoto) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()

@@ -150,4 +150,8 @@
     <string name="err_open_project">Could not open the project</string>
     <string name="err_export_project">Could not export the project</string>
     <string name="err_import_project">This file is not a valid Harf project</string>
+    <string name="curve_label">Curve</string>
+    <string name="tab_crop">Crop</string>
+    <string name="crop_free">Free</string>
+    <string name="crop_apply">Apply crop</string>
 </resources>

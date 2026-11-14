@@ -336,6 +336,32 @@ fun EditorScreen(vm: HarfViewModel) {
     }
 }
 
+/**
+ * Which part of the crop rectangle is under the finger (view coordinates)?
+ * 1 TL, 2 TR, 3 BL, 4 BR, 5 L, 6 T, 7 R, 8 B, 9 inside (move), 0 nothing. Edges are skipped when the ratio is locked.
+ */
+private fun cropHandleAt(r: CropRect, f: Fit, x: Float, y: Float, tol: Float, cornersOnly: Boolean): Int {
+    val l = f.ox + r.l * f.scale
+    val t = f.oy + r.t * f.scale
+    val rr = f.ox + r.r * f.scale
+    val b = f.oy + r.b * f.scale
+    val mx = (l + rr) / 2f
+    val my = (t + b) / 2f
+    fun near(px: Float, py: Float): Boolean = kotlin.math.abs(x - px) <= tol && kotlin.math.abs(y - py) <= tol
+    if (near(l, t)) return 1
+    if (near(rr, t)) return 2
+    if (near(l, b)) return 3
+    if (near(rr, b)) return 4
+    if (!cornersOnly) {
+        if (near(l, my)) return 5
+        if (near(mx, t)) return 6
+        if (near(rr, my)) return 7
+        if (near(mx, b)) return 8
+    }
+    if (x >= l && x <= rr && y >= t && y <= b) return 9
+    return 0
+}
+
 private fun shareImage(context: Context, uri: Uri) {
     try {
         val send = Intent(Intent.ACTION_SEND)
@@ -370,7 +396,33 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val proj = vm.project
-                if (proj != null && vm.picking) {
+                if (proj != null && vm.crop != null) {
+                    val fc = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
+                    down.consume()
+                    val rect = vm.crop
+                    val handle = if (rect == null) 0 else cropHandleAt(rect, fc, down.position.x, down.position.y, 28.dp.toPx(), vm.cropRatio > 0f)
+                    if (handle != 0) {
+                        var prev = down.position
+                        var go = true
+                        while (go) {
+                            val ev = awaitPointerEvent()
+                            val ch = ev.changes.firstOrNull { it.id == down.id } ?: ev.changes.first()
+                            if (ch.pressed) {
+                                vm.dragCrop(handle, (ch.position.x - prev.x) / fc.scale, (ch.position.y - prev.y) / fc.scale)
+                                prev = ch.position
+                            }
+                            ch.consume()
+                            go = ev.changes.any { it.pressed }
+                        }
+                    } else {
+                        var go = true
+                        while (go) {
+                            val ev = awaitPointerEvent()
+                            ev.changes.forEach { it.consume() }
+                            go = ev.changes.any { it.pressed }
+                        }
+                    }
+                } else if (proj != null && vm.picking) {
                     val fp = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
                     down.consume()
                     var last = down.position
@@ -475,6 +527,53 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     nc.restore()
                 }
                 nc.restore()
+                val cropRect = vm.crop
+                if (cropRect != null) {
+                    val dpx = density
+                    val vl = f.ox + cropRect.l * f.scale
+                    val vt = f.oy + cropRect.t * f.scale
+                    val vr = f.ox + cropRect.r * f.scale
+                    val vb = f.oy + cropRect.b * f.scale
+                    val dim = android.graphics.Paint()
+                    dim.color = 0xAA000000.toInt()
+                    val dl = f.ox
+                    val dt = f.oy
+                    val dr = f.ox + project.docW * f.scale
+                    val db = f.oy + project.docH * f.scale
+                    nc.drawRect(dl, dt, dr, vt, dim)
+                    nc.drawRect(dl, vb, dr, db, dim)
+                    nc.drawRect(dl, vt, vl, vb, dim)
+                    nc.drawRect(vr, vt, dr, vb, dim)
+                    val line = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    line.style = android.graphics.Paint.Style.STROKE
+                    line.color = 0xFFFFFFFF.toInt()
+                    line.strokeWidth = 2f * dpx
+                    nc.drawRect(vl, vt, vr, vb, line)
+                    line.strokeWidth = 1f * dpx
+                    line.color = 0x88FFFFFF.toInt()
+                    for (i in 1..2) {
+                        val gx = vl + (vr - vl) * i / 3f
+                        val gy = vt + (vb - vt) * i / 3f
+                        nc.drawLine(gx, vt, gx, vb, line)
+                        nc.drawLine(vl, gy, vr, gy, line)
+                    }
+                    val hp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    hp.color = 0xFFFFFFFF.toInt()
+                    val hs = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    hs.style = android.graphics.Paint.Style.STROKE
+                    hs.strokeWidth = 2f * dpx
+                    hs.color = accent
+                    val cx2 = (vl + vr) / 2f
+                    val cy2 = (vt + vb) / 2f
+                    val xs = floatArrayOf(vl, vr, vl, vr, vl, cx2, vr, cx2)
+                    val ys = floatArrayOf(vt, vt, vb, vb, cy2, vt, cy2, vb)
+                    val count = if (vm.cropRatio > 0f) 4 else 8
+                    for (i in 0 until count) {
+                        val rad = if (i < 4) 8f * dpx else 6f * dpx
+                        nc.drawCircle(xs[i], ys[i], rad, hp)
+                        nc.drawCircle(xs[i], ys[i], rad, hs)
+                    }
+                }
                 val loupeBmp = vm.loupe()
                 if (vm.pickActive && pickTick >= 0 && loupeBmp != null) {
                     val dp = density

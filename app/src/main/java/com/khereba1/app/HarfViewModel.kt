@@ -20,6 +20,9 @@ import kotlinx.coroutines.withContext
 
 private const val IMAGE_LAYER_SIDE = 1600
 
+/** The crop rectangle being edited, in document pixels. */
+class CropRect(val l: Float, val t: Float, val r: Float, val b: Float)
+
 private class Restored(val project: Project, val photo: Bitmap?, val images: Map<String, Bitmap>)
 
 /**
@@ -53,6 +56,135 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     var eraser: Boolean by mutableStateOf(false)
     var eraserSize: Float by mutableFloatStateOf(0.05f) // diameter, relative to document width
     var eraseWhole: Boolean by mutableStateOf(false) // true: the eraser removes whole strokes
+    // ----- crop -----
+    var crop: CropRect? by mutableStateOf(null)
+        private set
+    /** Width / height the crop is locked to, 0 = free. */
+    var cropRatio: Float by mutableFloatStateOf(0f)
+        private set
+
+    fun beginCrop() {
+        val p = project ?: return
+        cropRatio = 0f
+        crop = CropRect(0f, 0f, p.docW.toFloat(), p.docH.toFloat())
+    }
+
+    fun endCrop() {
+        crop = null
+    }
+
+    /** Locks the crop to a ratio (0 = free) and fits the largest centered rectangle of that ratio. */
+    fun setCropRatio(ratio: Float) {
+        val p = project ?: return
+        cropRatio = ratio
+        if (ratio <= 0f) return
+        val w = p.docW.toFloat()
+        val h = p.docH.toFloat()
+        var cw = w
+        var ch = cw / ratio
+        if (ch > h) {
+            ch = h
+            cw = ch * ratio
+        }
+        val l = (w - cw) / 2f
+        val t = (h - ch) / 2f
+        crop = CropRect(l, t, l + cw, t + ch)
+    }
+
+    /**
+     * Drags part of the crop rectangle by (dx, dy) document pixels.
+     * handle: 1 TL, 2 TR, 3 BL, 4 BR (corners), 5 L, 6 T, 7 R, 8 B (edges), 9 move the whole rectangle.
+     */
+    fun dragCrop(handle: Int, dx: Float, dy: Float) {
+        val p = project ?: return
+        val c = crop ?: return
+        val maxW = p.docW.toFloat()
+        val maxH = p.docH.toFloat()
+        val minS = 24f
+        var l = c.l
+        var t = c.t
+        var r = c.r
+        var b = c.b
+        if (handle == 9) {
+            val w = r - l
+            val h = b - t
+            l = (l + dx).coerceIn(0f, max(0f, maxW - w))
+            t = (t + dy).coerceIn(0f, max(0f, maxH - h))
+            r = l + w
+            b = t + h
+        } else if (cropRatio > 0f && handle in 1..4) {
+            val leftSide = handle == 1 || handle == 3
+            val topSide = handle == 1 || handle == 2
+            val ax = if (leftSide) r else l
+            val ay = if (topSide) b else t
+            val mx = ((if (leftSide) l else r) + dx).coerceIn(0f, maxW)
+            val my = ((if (topSide) t else b) + dy).coerceIn(0f, maxH)
+            var w = kotlin.math.abs(mx - ax)
+            var h = kotlin.math.abs(my - ay)
+            if (w / cropRatio > h) h = w / cropRatio else w = h * cropRatio
+            val sx = if (mx >= ax) 1f else -1f
+            val sy = if (my >= ay) 1f else -1f
+            val limW = if (sx > 0f) maxW - ax else ax
+            val limH = if (sy > 0f) maxH - ay else ay
+            if (w <= 0f || h <= 0f) return
+            val k = kotlin.math.min(1f, kotlin.math.min(limW / w, limH / h))
+            w *= k
+            h *= k
+            if (w < minS || h < minS) return
+            val nx = ax + sx * w
+            val ny = ay + sy * h
+            l = kotlin.math.min(ax, nx)
+            r = kotlin.math.max(ax, nx)
+            t = kotlin.math.min(ay, ny)
+            b = kotlin.math.max(ay, ny)
+        } else {
+            if (handle == 1 || handle == 3 || handle == 5) l = (l + dx).coerceIn(0f, r - minS)
+            if (handle == 2 || handle == 4 || handle == 7) r = (r + dx).coerceIn(l + minS, maxW)
+            if (handle == 1 || handle == 2 || handle == 6) t = (t + dy).coerceIn(0f, b - minS)
+            if (handle == 3 || handle == 4 || handle == 8) b = (b + dy).coerceIn(t + minS, maxH)
+        }
+        crop = CropRect(l, t, r, b)
+    }
+
+    /** Cuts the document down to the crop rectangle. Layers keep their place on the picture; one undo step. */
+    fun applyCrop() {
+        val c = crop ?: return
+        val x0 = Math.round(c.l)
+        val y0 = Math.round(c.t)
+        val w = kotlin.math.max(16, Math.round(c.r) - x0)
+        val h = kotlin.math.max(16, Math.round(c.b) - y0)
+        edit("crop", true) { p ->
+            val shifted = p.items.map { l ->
+                if (l.type == TYPE_DRAW) {
+                    l.copy(
+                        strokes = l.strokes.map { s ->
+                            val np = FloatArray(s.pts.size)
+                            var i = 0
+                            while (i + 1 < s.pts.size) {
+                                np[i] = s.pts[i] - x0
+                                np[i + 1] = s.pts[i + 1] - y0
+                                i += 2
+                            }
+                            Stroke(s.color, s.width, np)
+                        },
+                    )
+                } else {
+                    l.copy(cx = l.cx - x0, cy = l.cy - y0)
+                }
+            }
+            p.copy(
+                docW = w,
+                docH = h,
+                items = shifted,
+                offX = p.offX + x0,
+                offY = p.offY + y0,
+                fullW = if (p.fullW > 0) p.fullW else p.docW,
+                fullH = if (p.fullH > 0) p.fullH else p.docH,
+            )
+        }
+        beginCrop()
+    }
+
     /** True while the editor waits for a tap on the canvas to pick a color. */
     var picking: Boolean by mutableStateOf(false)
         private set
@@ -429,6 +561,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         redoStack.add(cur)
         project = prev
         coalesceKey = null
+        if (crop != null) beginCrop()
         fixSelection()
         syncDepth()
         scheduleSave()
@@ -441,6 +574,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         undoStack.add(cur)
         project = next
         coalesceKey = null
+        if (crop != null) beginCrop()
         fixSelection()
         syncDepth()
         scheduleSave()

@@ -27,7 +27,11 @@ class BuiltText(
     val pad: Float,
     val boxW: Float,
     val boxH: Float,
+    val curved: List<CurvedLine>? = null,
 )
+
+/** One line of curved text with the arc it follows (already positioned inside the box). */
+class CurvedLine(val text: String, val path: Path)
 
 /** Width and height of a layer's (unrotated) box in document pixels. */
 class LayerBox(val w: Float, val h: Float)
@@ -67,9 +71,70 @@ object Renderer {
             .setAlignment(alignment)
             .setLineSpacing(0f, item.lineSpacing)
             .build()
+        if (abs(item.curve) >= 0.01f && item.text.isNotEmpty()) return buildCurved(item, paint, pad, layout)
         val boxW = layout.width.toFloat() + 2f * pad
         val boxH = layout.height.toFloat() + 2f * pad
         return BuiltText(layout, paint, pad, boxW, boxH)
+    }
+
+    /** Lays each line of the text along a circular arc. Rainbow (curve > 0) or smile (curve < 0). */
+    private fun buildCurved(item: Layer, paint: TextPaint, pad: Float, layout: StaticLayout): BuiltText {
+        val lines = item.text.split("\n")
+        val n = lines.size
+        val widths = FloatArray(n)
+        var maxW = 1f
+        for (i in 0 until n) {
+            widths[i] = paint.measureText(lines[i])
+            if (widths[i] > maxW) maxW = widths[i]
+        }
+        val fm = paint.fontMetrics
+        val asc = -fm.ascent
+        val dsc = fm.descent
+        val lineH = (asc + dsc) * item.lineSpacing
+        val theta = abs(item.curve).coerceIn(0.01f, 1f) * Math.PI.toFloat()
+        val r0 = maxW / theta
+        val rainbow = item.curve > 0f
+        val paths = ArrayList<Path>()
+        val bounds = RectF()
+        var first = true
+        for (i in 0 until n) {
+            val r = if (rainbow) r0 + (n - 1 - i) * lineH else r0 + i * lineH
+            val sweep = Math.toDegrees((widths[i] / r).toDouble()).toFloat()
+            val path = Path()
+            val oval = RectF(-r, -r, r, r)
+            if (rainbow) path.addArc(oval, -90f - sweep / 2f, sweep) else path.addArc(oval, 90f + sweep / 2f, -sweep)
+            if (lines[i].isNotEmpty()) {
+                val bb = RectF()
+                path.computeBounds(bb, true)
+                if (first) {
+                    bounds.set(bb)
+                    first = false
+                } else {
+                    bounds.union(bb)
+                }
+            }
+            paths.add(path)
+        }
+        if (first) return BuiltText(layout, paint, pad, layout.width.toFloat() + 2f * pad, layout.height.toFloat() + 2f * pad)
+        bounds.top -= asc
+        bounds.bottom += dsc
+        bounds.left -= asc * 0.6f
+        bounds.right += asc * 0.6f
+        val out = ArrayList<CurvedLine>()
+        for (i in 0 until n) {
+            paths[i].offset(-bounds.left, -bounds.top)
+            out.add(CurvedLine(lines[i], paths[i]))
+        }
+        return BuiltText(layout, paint, pad, bounds.width() + 2f * pad, bounds.height() + 2f * pad, out)
+    }
+
+    private fun drawGlyphs(canvas: Canvas, b: BuiltText) {
+        val c = b.curved
+        if (c == null) {
+            b.layout.draw(canvas)
+        } else {
+            for (l in c) if (l.text.isNotEmpty()) canvas.drawTextOnPath(l.text, l.path, 0f, 0f, b.paint)
+        }
     }
 
     fun boxOf(item: Layer, docW: Int): LayerBox {
@@ -267,19 +332,19 @@ object Renderer {
             p.strokeWidth = item.strokeRel * item.size * 2f
             p.color = item.strokeColor
             if (item.shadowOn) p.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor) else p.clearShadowLayer()
-            b.layout.draw(canvas)
+            drawGlyphs(canvas, b)
             p.style = Paint.Style.FILL
             p.clearShadowLayer()
             p.color = item.color
-            if (item.gradOn) p.shader = gradientShader(item, b.layout.width.toFloat(), b.layout.height.toFloat())
-            b.layout.draw(canvas)
+            if (item.gradOn) p.shader = gradientShader(item, b.boxW - 2f * b.pad, b.boxH - 2f * b.pad)
+            drawGlyphs(canvas, b)
             p.shader = null
         } else {
             p.style = Paint.Style.FILL
             p.color = item.color
-            if (item.gradOn) p.shader = gradientShader(item, b.layout.width.toFloat(), b.layout.height.toFloat())
+            if (item.gradOn) p.shader = gradientShader(item, b.boxW - 2f * b.pad, b.boxH - 2f * b.pad)
             if (item.shadowOn) p.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor) else p.clearShadowLayer()
-            b.layout.draw(canvas)
+            drawGlyphs(canvas, b)
             p.shader = null
         }
 
@@ -335,7 +400,9 @@ object Renderer {
             val pp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
             val cm = colorMatrixOf(p)
             if (cm != null) pp.colorFilter = ColorMatrixColorFilter(cm)
-            canvas.drawBitmap(photo, null, RectF(0f, 0f, p.docW.toFloat(), p.docH.toFloat()), pp)
+            val fw = if (p.fullW > 0) p.fullW.toFloat() else p.docW.toFloat()
+            val fh = if (p.fullH > 0) p.fullH.toFloat() else p.docH.toFloat()
+            canvas.drawBitmap(photo, null, RectF(-p.offX, -p.offY, -p.offX + fw, -p.offY + fh), pp)
         }
         for (item in p.items) drawLayer(canvas, item, p.docW, p.docH, images)
         canvas.restoreToCount(saved)

@@ -41,6 +41,7 @@ data class Layer(
     val align: Int = ALIGN_CENTER,
     val lineSpacing: Float = 1f,
     val letterSpacing: Float = 0f, // in em
+    val curve: Float = 0f, // -1..1, text bent along an arc (+ rainbow, - smile)
     val gradOn: Boolean = false,
     val gradColor: Int = 0xFFFFC107.toInt(),
     val gradAngle: Float = 90f,
@@ -82,6 +83,11 @@ data class Project(
     val contrast: Float = 1f,
     val sat: Float = 1f,
     val filter: Int = 0,
+    // crop: the photo is drawn at (-offX, -offY) with its original size (fullW x fullH; 0 = same as docW x docH)
+    val offX: Float = 0f,
+    val offY: Float = 0f,
+    val fullW: Int = 0,
+    val fullH: Int = 0,
 )
 
 private fun JSONObject.f(key: String, def: Float): Float = optDouble(key, def.toDouble()).toFloat()
@@ -105,6 +111,7 @@ fun layerToJson(t: Layer): JSONObject {
     o.put("align", t.align)
     o.put("lineSpacing", t.lineSpacing.toDouble())
     o.put("letterSpacing", t.letterSpacing.toDouble())
+    o.put("curve", t.curve.toDouble())
     o.put("gradOn", t.gradOn)
     o.put("gradColor", t.gradColor)
     o.put("gradAngle", t.gradAngle.toDouble())
@@ -176,6 +183,7 @@ fun layerFromJson(o: JSONObject): Layer {
         align = o.optInt("align", d.align),
         lineSpacing = o.f("lineSpacing", d.lineSpacing),
         letterSpacing = o.f("letterSpacing", d.letterSpacing),
+        curve = o.f("curve", d.curve),
         gradOn = o.optBoolean("gradOn", d.gradOn),
         gradColor = o.optInt("gradColor", d.gradColor),
         gradAngle = o.f("gradAngle", d.gradAngle),
@@ -213,6 +221,10 @@ fun projectToJson(p: Project): JSONObject {
     o.put("contrast", p.contrast.toDouble())
     o.put("sat", p.sat.toDouble())
     o.put("filter", p.filter)
+    o.put("offX", p.offX.toDouble())
+    o.put("offY", p.offY.toDouble())
+    o.put("fullW", p.fullW)
+    o.put("fullH", p.fullH)
     val arr = JSONArray()
     for (t in p.items) arr.put(layerToJson(t))
     o.put("items", arr)
@@ -239,6 +251,10 @@ fun projectFromJson(o: JSONObject): Project {
         contrast = o.f("contrast", 1f),
         sat = o.f("sat", 1f),
         filter = o.optInt("filter", 0),
+        offX = o.f("offX", 0f),
+        offY = o.f("offY", 0f),
+        fullW = o.optInt("fullW", 0),
+        fullH = o.optInt("fullH", 0),
         items = items,
         nextId = maxOf(o.optLong("nextId", 1L), maxId + 1L),
     )

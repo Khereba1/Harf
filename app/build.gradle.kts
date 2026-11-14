@@ -14,8 +14,8 @@ android {
         applicationId = "com.khereba1.harf"
         minSdk = 29
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.9"
+        versionCode = 11
+        versionName = "2.0"
     }
 
     // Stable signing: when the env vars exist (GitHub Secrets) the release is signed with the fixed key,

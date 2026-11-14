@@ -147,4 +147,8 @@
     <string name="err_open_project">مقدرناش نفتح المشروع</string>
     <string name="err_export_project">مقدرناش نصدّر المشروع</string>
     <string name="err_import_project">الملف ده مش مشروع حرف صالح</string>
+    <string name="curve_label">الانحناء</string>
+    <string name="tab_crop">قص</string>
+    <string name="crop_free">حر</string>
+    <string name="crop_apply">تطبيق القص</string>
 </resources>

@@ -74,3 +74,6 @@ Eyedropper now live: press+drag shows a magnifier loupe (21x21 samples, nearest-
 
 ## edit8
 My projects: ProjectStore (filesDir/projects/<id>/ with project.json, photo.src, img_*.src, meta.json, thumb.jpg), VM.saveProject/openProject/rename/delete/export/import, ".harf" = zip of that folder (own format, NOT PixelLab .plp), ProjectsUi.kt dialog, save icon in editor, 3-way close dialog. versionCode 10 / 1.9.
+
+## edit9
+Curved text (Layer.curve, Renderer.buildCurved/drawGlyphs/drawTextOnPath) and non-destructive crop (Project.offX/offY/fullW/fullH, VM crop state, CropPanel in the Photo tab, overlay + handle gestures in EditorCanvas). versionCode 11 / 2.0.
