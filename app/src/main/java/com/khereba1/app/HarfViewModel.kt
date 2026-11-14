@@ -53,6 +53,44 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     var eraser: Boolean by mutableStateOf(false)
     var eraserSize: Float by mutableFloatStateOf(0.05f) // diameter, relative to document width
     var eraseWhole: Boolean by mutableStateOf(false) // true: the eraser removes whole strokes
+    /** True while the editor waits for a tap on the canvas to pick a color. */
+    var picking: Boolean by mutableStateOf(false)
+        private set
+    private var pickCallback: ((Int) -> Unit)? = null
+
+    fun startPick(cb: (Int) -> Unit) {
+        pickCallback = cb
+        picking = true
+    }
+
+    fun cancelPick() {
+        pickCallback = null
+        picking = false
+    }
+
+    /** Samples the finished picture (photo + all layers) at a document point and hands the color to the waiting callback. */
+    fun pickAt(x: Float, y: Float) {
+        val p = project
+        val cb = pickCallback
+        pickCallback = null
+        picking = false
+        if (p == null || cb == null) return
+        val xi = x.toInt().coerceIn(0, p.docW - 1)
+        val yi = y.toInt().coerceIn(0, p.docH - 1)
+        var px = 0xFF000000.toInt()
+        try {
+            val bmp = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+            val c = android.graphics.Canvas(bmp)
+            c.translate(-xi.toFloat(), -yi.toFloat())
+            Renderer.drawDocument(c, p, photo, images, null, 1f, 0)
+            px = bmp.getPixel(0, 0)
+            bmp.recycle()
+        } catch (e: Throwable) {
+            AppLog.log("PICK", "Color pick failed", e)
+        }
+        cb(px or 0xFF000000.toInt())
+    }
+
     /** Changes whenever the user taps a layer on the canvas (the editor then opens the Edit tab). */
     var canvasPickTick: Int by mutableIntStateOf(0)
         private set
@@ -160,6 +198,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun closeProject() {
+        cancelPick()
         saveJob?.cancel()
         resetHistory()
         project = null

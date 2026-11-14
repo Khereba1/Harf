@@ -92,7 +92,9 @@ fun EditorScreen(vm: HarfViewModel) {
     LaunchedEffect(tool) {
         if (tool == TOOL_DRAW) vm.select(null)
     }
+    val pickStarter: (((Int) -> Unit) -> Unit) = { cb -> vm.startPick(cb) }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalEyedropper provides pickStarter) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -141,6 +143,29 @@ fun EditorScreen(vm: HarfViewModel) {
             )
             if (vm.busy) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
+            }
+            if (vm.picking) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 10.dp, start = 12.dp, end = 12.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        HIcon(R.drawable.ic_pipette, null, tint = MaterialTheme.colorScheme.primary, size = 20.dp)
+                        Text(
+                            text = stringResource(R.string.pick_hint),
+                            modifier = Modifier.padding(horizontal = 10.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        IconAction(R.drawable.ic_close, stringResource(R.string.cancel), { vm.cancelPick() })
+                    }
+                }
             }
         }
 
@@ -244,6 +269,7 @@ fun EditorScreen(vm: HarfViewModel) {
             }
         }
     }
+    }
 
     // ----- dialogs -----
     if (textDialog == DIALOG_ADD) {
@@ -328,7 +354,20 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val proj = vm.project
-                if (proj != null && drawState.value) {
+                if (proj != null && vm.picking) {
+                    val fp = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
+                    down.consume()
+                    var last = down.position
+                    var go = true
+                    while (go) {
+                        val ev = awaitPointerEvent()
+                        val ch = ev.changes.firstOrNull { it.id == down.id } ?: ev.changes.first()
+                        last = ch.position
+                        ch.consume()
+                        go = ev.changes.any { it.pressed }
+                    }
+                    vm.pickAt((last.x - fp.ox) / fp.scale, (last.y - fp.oy) / fp.scale)
+                } else if (proj != null && drawState.value) {
                     val fd = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
                     down.consume()
                     vm.beginStroke((down.position.x - fd.ox) / fd.scale, (down.position.y - fd.oy) / fd.scale)

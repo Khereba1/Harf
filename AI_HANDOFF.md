@@ -65,3 +65,6 @@ Drawing (TYPE_DRAW layers with Stroke lists; VM.beginStroke/extendStroke/endStro
 
 ## edit5
 Pixel eraser (cutStroke; option erase whole stroke), real layer thumbnails (LayerThumb), tools regrouped into 5 main tabs Edit/Add/Draw/Photo/Layers with sub-tabs (ToolPanels.kt). Tapping a layer on canvas opens Edit (canvasPickTick). versionCode 7 / 1.6.
+
+## edit6
+Color tools: ColorRow shows current color + hex (tap to edit), eyedropper (VM.picking/pickAt samples the rendered doc at a point, LocalEyedropper provided by EditorScreen), hex field in ColorPickerDialog. versionCode 8 / 1.7.

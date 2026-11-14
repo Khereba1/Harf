@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,50 +101,126 @@ fun LabeledSlider(
     }
 }
 
-/** A row of color swatches plus a "custom" button that opens the full picker. */
+/** Provided by the editor: starts "tap the canvas to pick a color". Null where picking from the canvas makes no sense. */
+val LocalEyedropper = androidx.compose.runtime.compositionLocalOf<(((Int) -> Unit) -> Unit)?> { null }
+
+fun hexOf(argb: Int): String {
+    val rgb = String.format("%06X", argb and 0xFFFFFF)
+    val a = (argb ushr 24) and 0xFF
+    return if (a == 255) "#" + rgb else "#" + String.format("%02X", a) + rgb
+}
+
+/** Parses "RRGGBB", "AARRGGBB" or "RGB" (with or without #). Returns null if it is not a valid color. */
+fun parseHex(text: String): Int? {
+    val t = text.trim().removePrefix("#")
+    return try {
+        when (t.length) {
+            3 -> {
+                val r = t.substring(0, 1).repeat(2)
+                val g = t.substring(1, 2).repeat(2)
+                val b = t.substring(2, 3).repeat(2)
+                (0xFF000000L or (r + g + b).toLong(16)).toInt()
+            }
+            6 -> (0xFF000000L or t.toLong(16)).toInt()
+            8 -> t.toLong(16).toInt()
+            else -> null
+        }
+    } catch (e: NumberFormatException) {
+        null
+    }
+}
+
+/**
+ * Shows the current color with its hex code (tap to edit), an eyedropper that picks a color
+ * from anywhere on the canvas, a row of swatches and a "custom" button that opens the full picker.
+ */
 @Composable
 fun ColorRow(selected: Int, onPick: (Int) -> Unit) {
     var showPicker by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        for (c in PALETTE) {
-            val isSelected = c == selected
+    val eyedropper = LocalEyedropper.current
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable { showPicker = true }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFBDBDBD.toInt()))
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                        .background(Color(selected))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                )
+                Text(
+                    text = hexOf(selected),
+                    modifier = Modifier.padding(start = 10.dp, end = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                )
+            }
+            if (eyedropper != null) {
+                Spacer(Modifier.width(8.dp))
+                IconAction(
+                    res = R.drawable.ic_pipette,
+                    desc = stringResource(R.string.eyedropper_label),
+                    onClick = { eyedropper(onPick) },
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (c in PALETTE) {
+                val isSelected = c == selected
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(c))
+                        .border(
+                            width = if (isSelected) 3.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            shape = CircleShape,
+                        )
+                        .clickable { onPick(c) },
+                )
+            }
             Box(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(Color(c))
-                    .border(
-                        width = if (isSelected) 3.dp else 1.dp,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        shape = CircleShape,
-                    )
-                    .clickable { onPick(c) },
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.sweepGradient(
-                        listOf(
-                            Color(0xFFFF3B30), Color(0xFFFFCC00), Color(0xFF34C759),
-                            Color(0xFF00C7BE), Color(0xFF0A84FF), Color(0xFFBF5AF2), Color(0xFFFF3B30),
+                    .background(
+                        Brush.sweepGradient(
+                            listOf(
+                                Color(0xFFFF3B30), Color(0xFFFFCC00), Color(0xFF34C759),
+                                Color(0xFF00C7BE), Color(0xFF0A84FF), Color(0xFFBF5AF2), Color(0xFFFF3B30),
+                            ),
                         ),
-                    ),
-                )
-                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                .clickable { showPicker = true },
-            contentAlignment = Alignment.Center,
-        ) {
-            HIcon(R.drawable.ic_plus, stringResource(R.string.custom_color), tint = Color.White, size = 18.dp)
+                    )
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    .clickable { showPicker = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                HIcon(R.drawable.ic_plus, stringResource(R.string.custom_color), tint = Color.White, size = 18.dp)
+            }
         }
     }
     if (showPicker) {
@@ -165,10 +242,22 @@ fun ColorPickerDialog(initial: Int, onDismiss: () -> Unit, onConfirm: (Int) -> U
     var sat by remember { mutableFloatStateOf(hsv0[1]) }
     var value by remember { mutableFloatStateOf(hsv0[2]) }
     var alpha by remember { mutableFloatStateOf(android.graphics.Color.alpha(initial) / 255f) }
-    val argb = android.graphics.Color.HSVToColor(
+    var hex by remember { mutableStateOf(hexOf(initial).removePrefix("#")) }
+    var exact by remember { mutableStateOf<Int?>(initial) } // the typed color, so hex round-trips without HSV rounding
+    val argb = exact ?: android.graphics.Color.HSVToColor(
         (alpha * 255f).roundToInt().coerceIn(0, 255),
         floatArrayOf(hue, sat, value),
     )
+    fun fromSliders() {
+        exact = null
+        hex = hexOf(
+            android.graphics.Color.HSVToColor(
+                (alpha * 255f).roundToInt().coerceIn(0, 255),
+                floatArrayOf(hue, sat, value),
+            ),
+        ).removePrefix("#")
+    }
+    val hexValid = parseHex(hex) != null
     CardDialog(onDismiss = onDismiss) {
         Column(
             modifier = Modifier
@@ -188,13 +277,35 @@ fun ColorPickerDialog(initial: Int, onDismiss: () -> Unit, onConfirm: (Int) -> U
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(argb)),
             )
-            LabeledSlider(stringResource(R.string.hue), hue, 0f..360f, hue.roundToInt().toString()) { hue = it }
-            LabeledSlider(stringResource(R.string.saturation), sat, 0f..1f, (sat * 100f).roundToInt().toString() + "%") { sat = it }
-            LabeledSlider(stringResource(R.string.brightness), value, 0f..1f, (value * 100f).roundToInt().toString() + "%") { value = it }
-            LabeledSlider(stringResource(R.string.alpha_label), alpha, 0f..1f, (alpha * 100f).roundToInt().toString() + "%") { alpha = it }
+            OutlinedTextField(
+                value = hex,
+                onValueChange = { raw ->
+                    val cleaned = raw.removePrefix("#").filter { ch -> ch.isDigit() || ch.lowercaseChar() in 'a'..'f' }.take(8).uppercase()
+                    hex = cleaned
+                    val parsed = parseHex(cleaned)
+                    if (parsed != null) {
+                        exact = parsed
+                        val hsv = FloatArray(3)
+                        android.graphics.Color.colorToHSV(parsed, hsv)
+                        hue = hsv[0]
+                        sat = hsv[1]
+                        value = hsv[2]
+                        alpha = android.graphics.Color.alpha(parsed) / 255f
+                    }
+                },
+                label = { Text(stringResource(R.string.hex_label)) },
+                prefix = { Text("#") },
+                singleLine = true,
+                isError = !hexValid,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            LabeledSlider(stringResource(R.string.hue), hue, 0f..360f, hue.roundToInt().toString()) { hue = it; fromSliders() }
+            LabeledSlider(stringResource(R.string.saturation), sat, 0f..1f, (sat * 100f).roundToInt().toString() + "%") { sat = it; fromSliders() }
+            LabeledSlider(stringResource(R.string.brightness), value, 0f..1f, (value * 100f).roundToInt().toString() + "%") { value = it; fromSliders() }
+            LabeledSlider(stringResource(R.string.alpha_label), alpha, 0f..1f, (alpha * 100f).roundToInt().toString() + "%") { alpha = it; fromSliders() }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-                Button(onClick = { onConfirm(argb) }) { Text(stringResource(R.string.ok)) }
+                Button(onClick = { onConfirm(argb) }, enabled = hexValid) { Text(stringResource(R.string.ok)) }
             }
         }
     }

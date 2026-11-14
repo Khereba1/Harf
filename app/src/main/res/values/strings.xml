@@ -132,4 +132,7 @@
     <string name="eraser_size">Eraser size</string>
     <string name="erase_whole">Erase the whole stroke</string>
     <string name="hint_draw_layer">This is a drawing layer. Use the Draw tab to add or erase strokes.</string>
+    <string name="eyedropper_label">Pick a color from the image</string>
+    <string name="pick_hint">Tap anywhere on the image to pick a color</string>
+    <string name="hex_label">Hex code</string>
 </resources>
