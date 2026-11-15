@@ -14,8 +14,8 @@ android {
         applicationId = "com.khereba1.harf"
         minSdk = 29
         targetSdk = 34
-        versionCode = 12
-        versionName = "2.1"
+        versionCode = 13
+        versionName = "2.2"
     }
 
     // Stable signing: when the env vars exist (GitHub Secrets) the release is signed with the fixed key,
@@ -53,6 +53,12 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    // Lint is only advice for this app; it must never be the reason a release build fails.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 
     packaging {

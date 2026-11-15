@@ -3,7 +3,7 @@ package com.khereba1.app
 import android.graphics.Color
 
 /** A ready-made look for text: sets color, outline, shadow, gradient and box in one tap. */
-class TextStyleDef(val apply: (Layer) -> Layer)
+class TextStyleDef(val transform: (Layer) -> Layer)
 
 object TextStyles {
     private fun Layer.plain(): Layer = copy(

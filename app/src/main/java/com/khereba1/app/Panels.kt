@@ -643,11 +643,11 @@ fun StylesPanel(vm: HarfViewModel, item: Layer) {
                     .height(64.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF5A6070))
-                    .clickable { vm.editItem("style", true) { s -> def.apply(s) } },
+                    .clickable { vm.editItem("style", true) { s -> def.transform(s) } },
             ) {
                 drawIntoCanvas { c ->
                     val nc = c.nativeCanvas
-                    val sample = def.apply(
+                    val sample = def.transform(
                         Layer(
                             id = 0L, cx = 0f, cy = 0f, size = 48f, text = "Aa",
                             fontKey = item.fontKey, bold = true,

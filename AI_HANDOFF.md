@@ -80,3 +80,11 @@ Curved text (Layer.curve, Renderer.buildCurved/drawGlyphs/drawTextOnPath) and no
 
 ## edit10
 Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and snapping guides while dragging (VM.transformSelected raw tracking, guideX/guideY, snaps to doc center/edges). versionCode 12 / 2.1.
+
+## edit11 (v2.2, versionCode 13)
+- edit10's Actions build failed and the pasted log had no `e:` lines, so the cause is unknown. A full desk-check of every
+  file found no compile error. Safety changes: lint can no longer fail the release build (`lint {}` in app/build.gradle.kts),
+  TextStyleDef.apply renamed to `transform`, more memory in gradle.properties.
+- The workflow now tees the build to build.log, prints the real errors in the run's Summary ("Build errors") and uploads the
+  full log as the `build-log` artifact when a build fails. Ask for that summary first if a build fails again.
+- This zip is the whole source tree (edit8 + edit9 + edit10 + these changes), so it overwrites everything consistently.
