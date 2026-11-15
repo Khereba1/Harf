@@ -92,3 +92,4 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
   Renamed the function to `chooseCropRatio` (edit12). Never name a function setX/getX when a property X exists.
 - edit13 (v2.4): gradient fill for shapes (Gradient tab, Renderer.drawShape uses gradientShader).
 - edit14 (v2.5): rotate/flip the whole picture (Project.photoRot/photoFlip, VM.rotateDoc/flipDoc/remapDoc, Photo tab -> Rotate).
+- edit15 (v2.6): perf — Renderer text layout cache (CacheKey on layout-relevant fields, main thread only, Renderer.clearCache()).

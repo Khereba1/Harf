@@ -10,6 +10,7 @@ import android.graphics.Shader
 import android.graphics.Paint
 import android.graphics.RectF
 import android.text.Layout
+import android.os.Looper
 import android.text.StaticLayout
 import android.text.TextPaint
 import kotlin.math.abs
@@ -52,7 +53,63 @@ fun fitDoc(viewW: Float, viewH: Float, docW: Int, docH: Int): Fit {
  */
 object Renderer {
 
+    /**
+     * Remembers laid-out text. Only the fields that change the glyph layout are part of the key, so moving,
+     * rotating or recoloring a layer reuses it. Main thread only.
+     */
+    private class CacheKey(item: Layer, val docW: Int) {
+        private val text = item.text
+        private val size = item.size
+        private val spacing = item.letterSpacing
+        private val font = item.fontKey
+        private val bold = item.bold
+        private val italic = item.italic
+        private val bgOn = item.bgOn
+        private val bgPad = item.bgPad
+        private val align = item.align
+        private val line = item.lineSpacing
+        private val curve = item.curve
+
+        override fun equals(other: Any?): Boolean =
+            other is CacheKey && other.docW == docW && other.text == text && other.size == size &&
+                other.spacing == spacing && other.font == font && other.bold == bold && other.italic == italic &&
+                other.bgOn == bgOn && other.bgPad == bgPad && other.align == align && other.line == line &&
+                other.curve == curve
+
+        override fun hashCode(): Int {
+            var h = text.hashCode()
+            h = h * 31 + size.hashCode()
+            h = h * 31 + spacing.hashCode()
+            h = h * 31 + font.hashCode()
+            h = h * 31 + (if (bold) 1 else 0) + (if (italic) 2 else 0) + (if (bgOn) 4 else 0)
+            h = h * 31 + bgPad.hashCode()
+            h = h * 31 + align
+            h = h * 31 + line.hashCode()
+            h = h * 31 + curve.hashCode()
+            return h * 31 + docW
+        }
+    }
+
+    private val textCache = object : LinkedHashMap<CacheKey, BuiltText>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<CacheKey, BuiltText>?): Boolean = size > 48
+    }
+
+    /** Call when something a layout depends on changed outside the layer (a font finished loading or was imported). */
+    fun clearCache() {
+        if (Looper.myLooper() == Looper.getMainLooper()) textCache.clear()
+    }
+
     fun build(item: Layer, docW: Int): BuiltText {
+        if (Looper.myLooper() != Looper.getMainLooper()) return buildUncached(item, docW)
+        val key = CacheKey(item, docW)
+        val hit = textCache[key]
+        if (hit != null) return hit
+        val fresh = buildUncached(item, docW)
+        textCache[key] = fresh
+        return fresh
+    }
+
+    private fun buildUncached(item: Layer, docW: Int): BuiltText {
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG)
         paint.textSize = max(4f, item.size)
         paint.letterSpacing = item.letterSpacing

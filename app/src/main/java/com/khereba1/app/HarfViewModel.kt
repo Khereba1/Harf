@@ -1112,6 +1112,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
             if (entry == null) {
                 toastRes = R.string.font_import_failed
             } else {
+                Renderer.clearCache()
                 fontsVersion = fontsVersion + 1
                 toastRes = R.string.font_imported
                 editItem("font", true) { it.copy(fontKey = entry.key) }
