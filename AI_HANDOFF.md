@@ -88,3 +88,5 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - The workflow now tees the build to build.log, prints the real errors in the run's Summary ("Build errors") and uploads the
   full log as the `build-log` artifact when a build fails. Ask for that summary first if a build fails again.
 - This zip is the whole source tree (edit8 + edit9 + edit10 + these changes), so it overwrites everything consistently.
+- REAL cause of the edit10 failure (found from the log): `var cropRatio` and `fun setCropRatio` clashed on the JVM.
+  Renamed the function to `chooseCropRatio` (edit12). Never name a function setX/getX when a property X exists.

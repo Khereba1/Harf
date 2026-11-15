@@ -493,7 +493,7 @@ fun CropPanel(vm: HarfViewModel) {
                             if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                             RoundedCornerShape(10.dp),
                         )
-                        .clickable { if (ratio == 0f) vm.beginCrop() else vm.setCropRatio(ratio) },
+                        .clickable { if (ratio == 0f) vm.beginCrop() else vm.chooseCropRatio(ratio) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(

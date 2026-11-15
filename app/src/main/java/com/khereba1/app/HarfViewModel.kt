@@ -74,7 +74,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Locks the crop to a ratio (0 = free) and fits the largest centered rectangle of that ratio. */
-    fun setCropRatio(ratio: Float) {
+    fun chooseCropRatio(ratio: Float) {
         val p = project ?: return
         cropRatio = ratio
         if (ratio <= 0f) return
