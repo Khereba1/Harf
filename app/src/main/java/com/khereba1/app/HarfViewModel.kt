@@ -817,6 +817,38 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         scheduleSave()
     }
 
+    /** Aligns the selected layer to the canvas. h / v: -1 start, 0 center, 1 end, null leaves that axis alone. */
+    fun alignSelected(h: Int?, v: Int?) {
+        val id = selectedId ?: return
+        val p = project ?: return
+        val l = p.items.firstOrNull { it.id == id } ?: return
+        if (l.type == TYPE_DRAW) return
+        val b = Renderer.boxOf(l, p.docW)
+        val a = Math.toRadians(l.rotation.toDouble())
+        val c = kotlin.math.abs(kotlin.math.cos(a)).toFloat()
+        val s = kotlin.math.abs(kotlin.math.sin(a)).toFloat()
+        val hw = (b.w * c + b.h * s) / 2f
+        val hh = (b.w * s + b.h * c) / 2f
+        val docW = p.docW.toFloat()
+        val docH = p.docH.toFloat()
+        editById(id, "align", true) { t ->
+            t.copy(
+                cx = when (h) {
+                    -1 -> hw
+                    0 -> docW / 2f
+                    1 -> docW - hw
+                    else -> t.cx
+                },
+                cy = when (v) {
+                    -1 -> hh
+                    0 -> docH / 2f
+                    1 -> docH - hh
+                    else -> t.cy
+                },
+            )
+        }
+    }
+
     fun moveSelectedForward(forward: Boolean) {
         val id = selectedId ?: return
         moveLayer(id, forward)

@@ -164,6 +164,39 @@ fun ColorPanel(vm: HarfViewModel, item: Layer, label: String) {
     }
 }
 
+/** Six buttons that snap the selected layer to the edges or centers of the canvas. */
+@Composable
+private fun AlignRow(vm: HarfViewModel) {
+    val chips = listOf<Pair<String, () -> Unit>>(
+        "⇤" to { vm.alignSelected(-1, null) },
+        "↔" to { vm.alignSelected(0, null) },
+        "⇥" to { vm.alignSelected(1, null) },
+        "⤒" to { vm.alignSelected(null, -1) },
+        "↕" to { vm.alignSelected(null, 0) },
+        "⤓" to { vm.alignSelected(null, 1) },
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        for ((glyph, action) in chips) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF2A2F3A))
+                    .clickable { action() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(glyph, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
+}
+
 @Composable
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
@@ -175,6 +208,7 @@ fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp),
     ) {
+        AlignRow(vm)
         LabeledSlider(
             label = stringResource(R.string.size_label),
             value = item.size / docW,
