@@ -88,6 +88,9 @@ data class Project(
     val offY: Float = 0f,
     val fullW: Int = 0,
     val fullH: Int = 0,
+    // photo orientation: quarter turns clockwise (0..3) applied after an optional left-right mirror
+    val photoRot: Int = 0,
+    val photoFlip: Boolean = false,
 )
 
 private fun JSONObject.f(key: String, def: Float): Float = optDouble(key, def.toDouble()).toFloat()
@@ -225,6 +228,8 @@ fun projectToJson(p: Project): JSONObject {
     o.put("offY", p.offY.toDouble())
     o.put("fullW", p.fullW)
     o.put("fullH", p.fullH)
+    o.put("photoRot", p.photoRot)
+    o.put("photoFlip", p.photoFlip)
     val arr = JSONArray()
     for (t in p.items) arr.put(layerToJson(t))
     o.put("items", arr)
@@ -255,6 +260,8 @@ fun projectFromJson(o: JSONObject): Project {
         offY = o.f("offY", 0f),
         fullW = o.optInt("fullW", 0),
         fullH = o.optInt("fullH", 0),
+        photoRot = o.optInt("photoRot", 0).coerceIn(0, 3),
+        photoFlip = o.optBoolean("photoFlip", false),
         items = items,
         nextId = maxOf(o.optLong("nextId", 1L), maxId + 1L),
     )

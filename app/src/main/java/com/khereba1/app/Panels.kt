@@ -529,6 +529,43 @@ fun CropPanel(vm: HarfViewModel) {
     }
 }
 
+/** Rotate the whole picture a quarter turn, or mirror it. Layers and drawings follow the photo. */
+@Composable
+private fun RotatePanel(vm: HarfViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = { vm.rotateDoc(false) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.rotate_left)) }
+            OutlinedButton(
+                onClick = { vm.rotateDoc(true) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.rotate_right)) }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = { vm.flipDoc(true) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.flip_horizontal)) }
+            OutlinedButton(
+                onClick = { vm.flipDoc(false) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.flip_vertical)) }
+        }
+    }
+}
+
 private val FILTER_NAMES = listOf(
     R.string.filter_none, R.string.filter_bw, R.string.filter_sepia, R.string.filter_vivid,
     R.string.filter_cool, R.string.filter_warm, R.string.filter_fade,
@@ -539,13 +576,14 @@ private val FILTER_NAMES = listOf(
 fun AdjustPanel(vm: HarfViewModel, project: Project) {
     val hasPhoto = project.hasPhoto
     val labels = if (hasPhoto) {
-        listOf(stringResource(R.string.tab_filters), stringResource(R.string.tab_adjust), stringResource(R.string.tab_crop))
+        listOf(stringResource(R.string.tab_filters), stringResource(R.string.tab_adjust), stringResource(R.string.tab_rotate), stringResource(R.string.tab_crop))
     } else {
-        listOf(stringResource(R.string.tab_background), stringResource(R.string.tab_crop))
+        listOf(stringResource(R.string.tab_background), stringResource(R.string.tab_rotate), stringResource(R.string.tab_crop))
     }
     var tab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val t = if (tab < labels.size) tab else 0
     val onCropTab = t == labels.size - 1
+    val onRotateTab = t == labels.size - 2
     androidx.compose.runtime.DisposableEffect(onCropTab) {
         if (onCropTab) vm.beginCrop()
         onDispose { vm.endCrop() }
@@ -556,6 +594,8 @@ fun AdjustPanel(vm: HarfViewModel, project: Project) {
         Box(Modifier.fillMaxWidth().weight(1f)) {
             if (onCropTab) {
                 CropPanel(vm)
+            } else if (onRotateTab) {
+                RotatePanel(vm)
             } else if (!hasPhoto) {
                 Column(
                     modifier = Modifier

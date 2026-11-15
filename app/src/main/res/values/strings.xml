@@ -155,4 +155,9 @@
     <string name="crop_free">Free</string>
     <string name="crop_apply">Apply crop</string>
     <string name="tab_styles">Styles</string>
+    <string name="tab_rotate">Rotate</string>
+    <string name="rotate_left">↺ Rotate left</string>
+    <string name="rotate_right">↻ Rotate right</string>
+    <string name="flip_horizontal">⇄ Flip horizontal</string>
+    <string name="flip_vertical">⇅ Flip vertical</string>
 </resources>

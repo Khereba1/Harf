@@ -185,6 +185,83 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         beginCrop()
     }
 
+    /** Moves everything (layers, drawings, the photo frame) to a new document geometry. */
+    private fun remapDoc(
+        p: Project,
+        newW: Int,
+        newH: Int,
+        mx: (Float, Float) -> Float,
+        my: (Float, Float) -> Float,
+        rot: (Float) -> Float,
+        photoRot: Int,
+        photoFlip: Boolean,
+    ): Project {
+        val items = p.items.map { l ->
+            if (l.type == TYPE_DRAW) {
+                l.copy(
+                    strokes = l.strokes.map { s ->
+                        val np = FloatArray(s.pts.size)
+                        var i = 0
+                        while (i + 1 < s.pts.size) {
+                            np[i] = mx(s.pts[i], s.pts[i + 1])
+                            np[i + 1] = my(s.pts[i], s.pts[i + 1])
+                            i += 2
+                        }
+                        Stroke(s.color, s.width, np)
+                    },
+                )
+            } else {
+                l.copy(cx = mx(l.cx, l.cy), cy = my(l.cx, l.cy), rotation = rot(l.rotation))
+            }
+        }
+        val fw = (if (p.fullW > 0) p.fullW else p.docW).toFloat()
+        val fh = (if (p.fullH > 0) p.fullH else p.docH).toFloat()
+        val x1 = mx(-p.offX, -p.offY)
+        val y1 = my(-p.offX, -p.offY)
+        val x2 = mx(-p.offX + fw, -p.offY + fh)
+        val y2 = my(-p.offX + fw, -p.offY + fh)
+        return p.copy(
+            docW = newW,
+            docH = newH,
+            items = items,
+            offX = -kotlin.math.min(x1, x2),
+            offY = -kotlin.math.min(y1, y2),
+            fullW = Math.round(kotlin.math.abs(x2 - x1)),
+            fullH = Math.round(kotlin.math.abs(y2 - y1)),
+            photoRot = ((photoRot % 4) + 4) % 4,
+            photoFlip = photoFlip,
+        )
+    }
+
+    /** Turns the whole picture (photo, layers and drawings) a quarter turn. */
+    fun rotateDoc(clockwise: Boolean) {
+        crop = null
+        edit("rotate", true) { p ->
+            val w = p.docW.toFloat()
+            val h = p.docH.toFloat()
+            val add = if (clockwise != p.photoFlip) 1 else 3
+            if (clockwise) {
+                remapDoc(p, p.docH, p.docW, { _, y -> h - y }, { x, _ -> x }, { a -> normalizeAngle(a + 90f) }, p.photoRot + add, p.photoFlip)
+            } else {
+                remapDoc(p, p.docH, p.docW, { _, y -> y }, { x, _ -> w - x }, { a -> normalizeAngle(a - 90f) }, p.photoRot + add, p.photoFlip)
+            }
+        }
+    }
+
+    /** Mirrors the whole picture left-right (horizontal = true) or top-bottom. */
+    fun flipDoc(horizontal: Boolean) {
+        crop = null
+        edit("flipdoc", true) { p ->
+            val w = p.docW.toFloat()
+            val h = p.docH.toFloat()
+            if (horizontal) {
+                remapDoc(p, p.docW, p.docH, { x, _ -> w - x }, { _, y -> y }, { a -> -a }, p.photoRot, !p.photoFlip)
+            } else {
+                remapDoc(p, p.docW, p.docH, { x, _ -> x }, { _, y -> h - y }, { a -> -a }, p.photoRot + 2, !p.photoFlip)
+            }
+        }
+    }
+
     /** True while the editor waits for a tap on the canvas to pick a color. */
     var picking: Boolean by mutableStateOf(false)
         private set

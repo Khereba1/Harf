@@ -408,7 +408,15 @@ object Renderer {
             if (cm != null) pp.colorFilter = ColorMatrixColorFilter(cm)
             val fw = if (p.fullW > 0) p.fullW.toFloat() else p.docW.toFloat()
             val fh = if (p.fullH > 0) p.fullH.toFloat() else p.docH.toFloat()
-            canvas.drawBitmap(photo, null, RectF(-p.offX, -p.offY, -p.offX + fw, -p.offY + fh), pp)
+            val odd = p.photoRot % 2 == 1
+            val bw = if (odd) fh else fw
+            val bh = if (odd) fw else fh
+            val ps = canvas.save()
+            canvas.translate(-p.offX + fw / 2f, -p.offY + fh / 2f)
+            if (p.photoFlip) canvas.scale(-1f, 1f)
+            canvas.rotate(90f * p.photoRot)
+            canvas.drawBitmap(photo, null, RectF(-bw / 2f, -bh / 2f, bw / 2f, bh / 2f), pp)
+            canvas.restoreToCount(ps)
         }
         for (item in p.items) drawLayer(canvas, item, p.docW, p.docH, images)
         canvas.restoreToCount(saved)

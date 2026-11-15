@@ -152,4 +152,9 @@
     <string name="crop_free">حر</string>
     <string name="crop_apply">تطبيق القص</string>
     <string name="tab_styles">أنماط</string>
+    <string name="tab_rotate">تدوير</string>
+    <string name="rotate_left">↺ تدوير لليسار</string>
+    <string name="rotate_right">↻ تدوير لليمين</string>
+    <string name="flip_horizontal">⇄ قلب أفقي</string>
+    <string name="flip_vertical">⇅ قلب رأسي</string>
 </resources>

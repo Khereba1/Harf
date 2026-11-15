@@ -91,3 +91,4 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - REAL cause of the edit10 failure (found from the log): `var cropRatio` and `fun setCropRatio` clashed on the JVM.
   Renamed the function to `chooseCropRatio` (edit12). Never name a function setX/getX when a property X exists.
 - edit13 (v2.4): gradient fill for shapes (Gradient tab, Renderer.drawShape uses gradientShader).
+- edit14 (v2.5): rotate/flip the whole picture (Project.photoRot/photoFlip, VM.rotateDoc/flipDoc/remapDoc, Photo tab -> Rotate).
