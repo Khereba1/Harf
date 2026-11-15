@@ -91,6 +91,7 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
         val labels = listOf(
             stringResource(R.string.tab_fill),
             stringResource(R.string.tab_layout),
+            stringResource(R.string.tab_gradient),
             stringResource(R.string.tab_outline),
             stringResource(R.string.tab_shadow),
         )
@@ -98,7 +99,8 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
             when (t) {
                 0 -> ShapeFillPanel(vm, selected)
                 1 -> LayoutPanel(vm, selected, project.docW)
-                2 -> OutlinePanel(vm, selected)
+                2 -> GradientPanel(vm, selected)
+                3 -> OutlinePanel(vm, selected)
                 else -> ShadowPanel(vm, selected)
             }
         }

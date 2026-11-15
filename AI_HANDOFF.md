@@ -90,3 +90,4 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - This zip is the whole source tree (edit8 + edit9 + edit10 + these changes), so it overwrites everything consistently.
 - REAL cause of the edit10 failure (found from the log): `var cropRatio` and `fun setCropRatio` clashed on the JVM.
   Renamed the function to `chooseCropRatio` (edit12). Never name a function setX/getX when a property X exists.
+- edit13 (v2.4): gradient fill for shapes (Gradient tab, Renderer.drawShape uses gradientShader).

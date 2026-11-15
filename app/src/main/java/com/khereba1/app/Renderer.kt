@@ -287,6 +287,7 @@ object Renderer {
             val fill = Paint(Paint.ANTI_ALIAS_FLAG)
             fill.style = Paint.Style.FILL
             fill.color = item.color
+            if (item.gradOn) fill.shader = gradientShader(item, w, h)
             if (item.shadowOn) fill.setShadowLayer(shadowRadius, shadowDx, shadowDy, item.shadowColor)
             canvas.drawPath(path, fill)
         }
