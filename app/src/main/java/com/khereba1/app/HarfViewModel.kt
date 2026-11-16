@@ -817,6 +817,39 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         scheduleSave()
     }
 
+    /** The layer whose look was copied with "copy style" (null until something is copied). */
+    var styleClip: Layer? by mutableStateOf(null)
+        private set
+
+    fun copyStyle() {
+        val l = project?.items?.firstOrNull { it.id == selectedId } ?: return
+        if (l.type != TYPE_TEXT && l.type != TYPE_SHAPE) return
+        styleClip = l
+        toastRes = R.string.style_copied
+    }
+
+    /** Gives the selected layer the colors, outline, shadow, box and gradient of the copied one (never its text, size or place). */
+    fun pasteStyle() {
+        val s = styleClip ?: return
+        editItem("pastestyle", true) { t ->
+            if (t.type != s.type) {
+                t
+            } else {
+                t.copy(
+                    color = s.color, opacity = s.opacity,
+                    fontKey = s.fontKey, bold = s.bold, italic = s.italic, align = s.align,
+                    lineSpacing = s.lineSpacing, letterSpacing = s.letterSpacing, curve = s.curve,
+                    gradOn = s.gradOn, gradColor = s.gradColor, gradAngle = s.gradAngle,
+                    corner = s.corner, fillOn = s.fillOn,
+                    strokeOn = s.strokeOn, strokeColor = s.strokeColor, strokeRel = s.strokeRel,
+                    shadowOn = s.shadowOn, shadowColor = s.shadowColor, shadowBlur = s.shadowBlur,
+                    shadowDx = s.shadowDx, shadowDy = s.shadowDy,
+                    bgOn = s.bgOn, bgColor = s.bgColor, bgPad = s.bgPad, bgRadius = s.bgRadius,
+                )
+            }
+        }
+    }
+
     /** Aligns the selected layer to the canvas. h / v: -1 start, 0 center, 1 end, null leaves that axis alone. */
     fun alignSelected(h: Int?, v: Int?) {
         val id = selectedId ?: return

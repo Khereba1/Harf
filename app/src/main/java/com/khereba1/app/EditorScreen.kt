@@ -191,6 +191,16 @@ fun EditorScreen(vm: HarfViewModel) {
                             IconAction(R.drawable.ic_edit, stringResource(R.string.edit_text), { textDialog = DIALOG_EDIT })
                         }
                         IconAction(R.drawable.ic_copy, stringResource(R.string.duplicate), { vm.duplicateSelected() })
+                        if (selected.type == TYPE_TEXT || selected.type == TYPE_SHAPE) {
+                            IconAction(R.drawable.ic_brush, stringResource(R.string.copy_style), { vm.copyStyle() })
+                            val clip = vm.styleClip
+                            if (clip != null && clip.type == selected.type) {
+                                IconAction(
+                                    R.drawable.ic_paste, stringResource(R.string.paste_style), { vm.pasteStyle() },
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
                         IconAction(
                             if (selected.locked) R.drawable.ic_lock else R.drawable.ic_unlock,
                             stringResource(if (selected.locked) R.string.unlock else R.string.lock),

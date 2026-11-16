@@ -160,4 +160,7 @@
     <string name="rotate_right">↻ Rotate right</string>
     <string name="flip_horizontal">⇄ Flip horizontal</string>
     <string name="flip_vertical">⇅ Flip vertical</string>
+    <string name="copy_style">Copy style</string>
+    <string name="paste_style">Paste style</string>
+    <string name="style_copied">Style copied</string>
 </resources>

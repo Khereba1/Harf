@@ -157,4 +157,7 @@
     <string name="rotate_right">↻ تدوير لليمين</string>
     <string name="flip_horizontal">⇄ قلب أفقي</string>
     <string name="flip_vertical">⇅ قلب رأسي</string>
+    <string name="copy_style">نسخ التنسيق</string>
+    <string name="paste_style">لصق التنسيق</string>
+    <string name="style_copied">تم نسخ التنسيق</string>
 </resources>
