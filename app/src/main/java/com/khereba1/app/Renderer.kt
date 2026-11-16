@@ -194,7 +194,68 @@ object Renderer {
         }
     }
 
+    /** Bounding rectangle of everything a drawing layer paints (null when it has no points). */
+    fun drawBounds(item: Layer): RectF? {
+        var minX = Float.MAX_VALUE
+        var minY = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var maxY = -Float.MAX_VALUE
+        var any = false
+        for (s in item.strokes) {
+            val half = s.width / 2f
+            var i = 0
+            while (i + 1 < s.pts.size) {
+                val x = s.pts[i]
+                val y = s.pts[i + 1]
+                if (x - half < minX) minX = x - half
+                if (y - half < minY) minY = y - half
+                if (x + half > maxX) maxX = x + half
+                if (y + half > maxY) maxY = y + half
+                any = true
+                i += 2
+            }
+        }
+        return if (any) RectF(minX, minY, maxX, maxY) else null
+    }
+
+    /** Where the layer's middle is: its position, or for a drawing the middle of its strokes. */
+    fun centerX(item: Layer): Float = if (item.type == TYPE_DRAW) (drawBounds(item)?.centerX() ?: item.cx) else item.cx
+
+    fun centerY(item: Layer): Float = if (item.type == TYPE_DRAW) (drawBounds(item)?.centerY() ?: item.cy) else item.cy
+
+    private fun strokesNear(item: Layer, x: Float, y: Float, tol: Float): Boolean {
+        for (s in item.strokes) {
+            val reach = s.width / 2f + tol
+            val n = s.pts.size / 2
+            if (n == 1) {
+                val dx = x - s.pts[0]
+                val dy = y - s.pts[1]
+                if (dx * dx + dy * dy <= reach * reach) return true
+            }
+            for (i in 0 until n - 1) {
+                val ax = s.pts[2 * i]
+                val ay = s.pts[2 * i + 1]
+                val bx = s.pts[2 * i + 2]
+                val by = s.pts[2 * i + 3]
+                val ex = bx - ax
+                val ey = by - ay
+                val len2 = ex * ex + ey * ey
+                var t = if (len2 == 0f) 0f else ((x - ax) * ex + (y - ay) * ey) / len2
+                if (t < 0f) t = 0f
+                if (t > 1f) t = 1f
+                val qx = ax + t * ex - x
+                val qy = ay + t * ey - y
+                if (qx * qx + qy * qy <= reach * reach) return true
+            }
+        }
+        return false
+    }
+
     fun boxOf(item: Layer, docW: Int): LayerBox {
+        if (item.type == TYPE_DRAW) {
+            val r = drawBounds(item) ?: return LayerBox(8f, 8f)
+            return LayerBox(max(8f, r.width()), max(8f, r.height()))
+        }
         if (item.type != TYPE_TEXT) return LayerBox(item.size, item.size * item.aspect)
         val b = build(item, docW)
         return LayerBox(b.boxW, b.boxH)
@@ -479,7 +540,14 @@ object Renderer {
         canvas.restoreToCount(saved)
         if (selectedId != null) {
             for (item in p.items) {
-                if (item.id == selectedId && item.visible && item.type != TYPE_DRAW) drawSelection(canvas, item, p.docW, invScale, selectionColor)
+                if (item.id == selectedId && item.visible) {
+                    if (item.type == TYPE_DRAW) {
+                        val r = drawBounds(item)
+                        if (r != null) drawSelection(canvas, item.copy(cx = r.centerX(), cy = r.centerY(), rotation = 0f), p.docW, invScale, selectionColor)
+                    } else {
+                        drawSelection(canvas, item, p.docW, invScale, selectionColor)
+                    }
+                }
             }
         }
     }
@@ -488,7 +556,11 @@ object Renderer {
     fun hitTest(p: Project, x: Float, y: Float, tolerance: Float): Long? {
         for (i in p.items.indices.reversed()) {
             val item = p.items[i]
-            if (!item.visible || item.locked || item.type == TYPE_DRAW) continue
+            if (!item.visible || item.locked) continue
+            if (item.type == TYPE_DRAW) {
+                if (strokesNear(item, x, y, tolerance)) return item.id
+                continue
+            }
             val b = boxOf(item, p.docW)
             val dx = x - item.cx
             val dy = y - item.cy

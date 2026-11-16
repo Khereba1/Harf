@@ -628,20 +628,54 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private var resizeBase = 1f
+    private var resizeLast = 1f
+
+    // pivot (middle of the strokes) while a drawing layer is being moved, scaled or turned
+    private var drawPivX = 0f
+    private var drawPivY = 0f
+
+    /** Moves, scales (about the pivot) and turns strokes; the new pivot is (nx, ny). Widths follow the scale. */
+    private fun bakeStrokes(src: List<Stroke>, px: Float, py: Float, nx: Float, ny: Float, zoom: Float, deg: Float): List<Stroke> {
+        val a = Math.toRadians(deg.toDouble())
+        val c = kotlin.math.cos(a).toFloat() * zoom
+        val s = kotlin.math.sin(a).toFloat() * zoom
+        return src.map { st ->
+            val out = FloatArray(st.pts.size)
+            var i = 0
+            while (i + 1 < st.pts.size) {
+                val x = st.pts[i] - px
+                val y = st.pts[i + 1] - py
+                out[i] = nx + x * c - y * s
+                out[i + 1] = ny + x * s + y * c
+                i += 2
+            }
+            Stroke(st.color, (st.width * zoom).coerceAtLeast(1f), out)
+        }
+    }
 
     /** Starts a corner-handle resize of the selected layer. */
     fun beginResize() {
         coalesceKey = null
-        resizeBase = project?.items?.firstOrNull { it.id == selectedId }?.size ?: 1f
+        val sel = project?.items?.firstOrNull { it.id == selectedId }
+        resizeBase = sel?.size ?: 1f
+        resizeLast = 1f
+        if (sel != null && sel.type == TYPE_DRAW) {
+            drawPivX = Renderer.centerX(sel)
+            drawPivY = Renderer.centerY(sel)
+        }
     }
 
     /** Sets the size to the size at [beginResize] times [factor]. */
     fun resizeTo(factor: Float) {
         val id = selectedId ?: return
+        val z = if (resizeLast > 0f) factor / resizeLast else 1f
+        resizeLast = factor
         edit("resize", false) { p ->
             p.copy(
                 items = p.items.map { t ->
-                    if (t.id == id && !t.locked && t.type != TYPE_DRAW) {
+                    if (t.id == id && !t.locked && t.type == TYPE_DRAW) {
+                        if (z > 0.02f && z < 50f) t.copy(strokes = bakeStrokes(t.strokes, drawPivX, drawPivY, drawPivX, drawPivY, z, 0f)) else t
+                    } else if (t.id == id && !t.locked) {
                         val maxSize = if (t.type == TYPE_TEXT) p.docW * 0.9f else p.docW * 2f
                         t.copy(size = (resizeBase * factor).coerceIn(6f, maxSize))
                     } else {
@@ -655,8 +689,10 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     fun beginGesture() {
         coalesceKey = null
         val sel = project?.items?.firstOrNull { it.id == selectedId }
-        rawX = sel?.cx ?: 0f
-        rawY = sel?.cy ?: 0f
+        rawX = if (sel != null) Renderer.centerX(sel) else 0f
+        rawY = if (sel != null) Renderer.centerY(sel) else 0f
+        drawPivX = rawX
+        drawPivY = rawY
         endGesture()
     }
 
@@ -785,7 +821,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         val id = selectedId ?: return
         val cur = project ?: return
         val t0 = cur.items.firstOrNull { it.id == id } ?: return
-        if (t0.locked || t0.type == TYPE_DRAW) return
+        if (t0.locked) return
         rawX += dx
         rawY += dy
         var nx = rawX
@@ -804,10 +840,20 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         }
         guideX = gx
         guideY = gy
+        val drawNext: List<Stroke>? = if (t0.type == TYPE_DRAW) {
+            val baked = bakeStrokes(t0.strokes, drawPivX, drawPivY, nx, ny, zoom, rotationDeg)
+            drawPivX = nx
+            drawPivY = ny
+            baked
+        } else {
+            null
+        }
         edit("gesture", false) { p ->
             p.copy(
                 items = p.items.map { t ->
-                    if (t.id == id && !t.locked) {
+                    if (t.id == id && !t.locked && drawNext != null) {
+                        t.copy(strokes = drawNext)
+                    } else if (t.id == id && !t.locked) {
                         val maxSize = if (t.type == TYPE_TEXT) p.docW * 0.9f else p.docW * 2f
                         t.copy(
                             cx = nx,
@@ -834,7 +880,12 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         val p = project ?: return
         val src = p.items.firstOrNull { it.id == id } ?: return
         val newId = p.nextId
-        val copy = src.copy(id = newId, cx = src.cx + p.docW * 0.04f, cy = src.cy + p.docW * 0.04f)
+        val shift = p.docW * 0.04f
+        val copy = if (src.type == TYPE_DRAW) {
+            src.copy(id = newId, strokes = bakeStrokes(src.strokes, 0f, 0f, shift, shift, 1f, 0f))
+        } else {
+            src.copy(id = newId, cx = src.cx + shift, cy = src.cy + shift)
+        }
         pushUndo(p)
         coalesceKey = null
         project = p.copy(items = p.items + copy, nextId = newId + 1L)
@@ -1064,18 +1115,12 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         liveTick++
         if (eraser || p == null || pts.isEmpty()) return
         val stroke = Stroke(brushColor, max(1f, brushSize * p.docW), pts)
-        // Strokes go into the selected drawing layer, else the top-most one, else a new layer.
-        val target = p.items.firstOrNull { it.id == selectedId && it.type == TYPE_DRAW }
-            ?: p.items.lastOrNull { it.type == TYPE_DRAW }
+        // Every drawing (one touch from down to up) is its own layer, so it can be selected, moved and resized.
         pushUndo(p)
         coalesceKey = null
-        if (target != null) {
-            project = p.copy(items = p.items.map { if (it.id == target.id) it.copy(strokes = it.strokes + stroke) else it })
-        } else {
-            val id = p.nextId
-            val layer = Layer(id = id, type = TYPE_DRAW, cx = 0f, cy = 0f, size = 1f, strokes = listOf(stroke))
-            project = p.copy(items = p.items + layer, nextId = id + 1L)
-        }
+        val id = p.nextId
+        val layer = Layer(id = id, type = TYPE_DRAW, cx = 0f, cy = 0f, size = 1f, strokes = listOf(stroke))
+        project = p.copy(items = p.items + layer, nextId = id + 1L)
         scheduleSave()
     }
 
@@ -1174,7 +1219,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
                     } else {
                         l
                     }
-                },
+                }.filter { !(it.type == TYPE_DRAW && it.strokes.isEmpty()) },
             )
         }
     }

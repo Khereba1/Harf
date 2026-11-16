@@ -375,16 +375,18 @@ private fun cropHandleAt(r: CropRect, f: Fit, x: Float, y: Float, tol: Float, co
 /** The selected layer, if (x, y) in view pixels is on one of its four corner handles; otherwise null. */
 private fun cornerHandleLayer(p: Project, selectedId: Long?, f: Fit, x: Float, y: Float, tol: Float): Layer? {
     val sel = p.items.firstOrNull { it.id == selectedId } ?: return null
-    if (sel.type == TYPE_DRAW || sel.locked || !sel.visible) return null
+    if (sel.locked || !sel.visible) return null
     val b = Renderer.boxOf(sel, p.docW)
-    val a = Math.toRadians(sel.rotation.toDouble())
+    val mx = Renderer.centerX(sel)
+    val my = Renderer.centerY(sel)
+    val a = Math.toRadians((if (sel.type == TYPE_DRAW) 0f else sel.rotation).toDouble())
     val ca = kotlin.math.cos(a).toFloat()
     val sa = kotlin.math.sin(a).toFloat()
     for (i in 0 until 4) {
         val lx = if (i % 2 == 0) -b.w / 2f else b.w / 2f
         val ly = if (i < 2) -b.h / 2f else b.h / 2f
-        val vx = f.ox + (sel.cx + lx * ca - ly * sa) * f.scale
-        val vy = f.oy + (sel.cy + lx * sa + ly * ca) * f.scale
+        val vx = f.ox + (mx + lx * ca - ly * sa) * f.scale
+        val vy = f.oy + (my + lx * sa + ly * ca) * f.scale
         if (kotlin.math.abs(x - vx) <= tol && kotlin.math.abs(y - vy) <= tol) return sel
     }
     return null
@@ -494,8 +496,8 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                 } else if (proj != null && handleLayer != null) {
                     // dragging a corner handle: the size follows the finger's distance from the layer's center
                     val fr = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
-                    val cxv = fr.ox + handleLayer.cx * fr.scale
-                    val cyv = fr.oy + handleLayer.cy * fr.scale
+                    val cxv = fr.ox + Renderer.centerX(handleLayer) * fr.scale
+                    val cyv = fr.oy + Renderer.centerY(handleLayer) * fr.scale
                     val d0 = kotlin.math.max(12f, kotlin.math.hypot(down.position.x - cxv, down.position.y - cyv))
                     down.consume()
                     vm.beginResize()

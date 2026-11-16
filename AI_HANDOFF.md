@@ -98,3 +98,4 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - edit18 (v2.9): fonts split into Arabic / English sub-tabs (FontStore.fontsFor, arabicPrefixes list must be extended when adding Arabic fonts), ~50 more fonts in the workflow download step.
 - edit19 (v3.0): custom canvas size (100..4096 px) in BlankCanvasDialog; Settings language chips equal width, no wrapping. PLANNED next (user request): drag-to-resize handles, snap to other layers' edges/centers, snap toggle + grid overlay with optional snapping, all switchable from Settings.
 - edit20 (v3.1): corner-handle resize (EditorScreen.cornerHandleLayer, VM.beginResize/resizeTo); handles drawn bigger.
+- edit21 (v3.2): every drawing (touch down->up) is its own layer; draw layers are selectable (Renderer.hitTest/strokesNear), movable/scalable/rotatable by baking into stroke points (VM.bakeStrokes, drawPiv*), corner resize works on them (Renderer.centerX/centerY/drawBounds).
