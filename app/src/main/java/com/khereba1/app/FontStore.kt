@@ -74,6 +74,29 @@ object FontStore {
         return out
     }
 
+    // Bundled files whose names start with one of these are Arabic-script fonts; the rest are Latin.
+    private val arabicPrefixes = listOf(
+        "Amiri", "Tajawal", "Almarai", "Lalezar", "Scheherazade", "Harmattan", "Lateef", "Rakkas",
+        "Katibeh", "Mirza", "Jomhuria", "ArefRuqaa", "Blaka", "Gulzar", "IBMPlexSansArabic", "Cairo",
+        "ElMessiri", "ReemKufi", "Changa", "Lemonada", "MarkaziText", "NotoKufiArabic",
+    )
+
+    private fun isArabicAsset(key: String): Boolean {
+        val file = key.substringAfterLast('/')
+        return arabicPrefixes.any { file.startsWith(it) }
+    }
+
+    /** The fonts shown on the Arabic (arabic = true) or English tab. Fonts the user imported appear on both. */
+    fun fontsFor(arabic: Boolean): List<FontEntry> {
+        val all = allFonts()
+        return if (arabic) {
+            val base = listOf(FontEntry("sys:sans-serif", "Sans"), FontEntry("sys:serif", "Serif"))
+            base + all.filter { (it.key.startsWith("asset:") && isArabicAsset(it.key)) || it.key.startsWith("file:") }
+        } else {
+            all.filter { it.key.startsWith("sys:") || (it.key.startsWith("asset:") && !isArabicAsset(it.key)) || it.key.startsWith("file:") }
+        }
+    }
+
     @Synchronized
     private fun baseTypeface(key: String): Typeface {
         val c = appContext

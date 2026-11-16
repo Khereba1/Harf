@@ -160,4 +160,6 @@
     <string name="copy_style">نسخ التنسيق</string>
     <string name="paste_style">لصق التنسيق</string>
     <string name="style_copied">تم نسخ التنسيق</string>
+    <string name="tab_font_ar">خطوط عربية</string>
+    <string name="tab_font_en">خطوط إنجليزية</string>
 </resources>

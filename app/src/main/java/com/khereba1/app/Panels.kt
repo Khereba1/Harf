@@ -63,22 +63,23 @@ internal fun SwitchRow(label: String, checked: Boolean, onChecked: (Boolean) -> 
 
 /** Draws "حرف Abc" in the given font, using the same Typeface the renderer uses. */
 @Composable
-private fun FontSample(fontKey: String, color: Int, modifier: Modifier) {
+private fun FontSample(fontKey: String, color: Int, sample: String, modifier: Modifier) {
     Canvas(modifier = modifier) {
         drawIntoCanvas { c ->
             val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
             paint.typeface = FontStore.typeface(fontKey, false, false)
             paint.textSize = size.height * 0.46f
             paint.color = color
-            c.nativeCanvas.drawText("حرف Abc", 12.dp.toPx(), size.height * 0.62f, paint)
+            c.nativeCanvas.drawText(sample, 12.dp.toPx(), size.height * 0.62f, paint)
         }
     }
 }
 
 @Composable
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-fun FontPanel(vm: HarfViewModel, item: Layer) {
-    val fonts = remember(vm.fontsVersion) { FontStore.allFonts() }
+fun FontPanel(vm: HarfViewModel, item: Layer, arabic: Boolean) {
+    val fonts = remember(vm.fontsVersion, arabic) { FontStore.fontsFor(arabic) }
+    val sample = if (arabic) "حرف أبجد" else "Abc 123"
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importFont(uri)
     }
@@ -134,7 +135,7 @@ fun FontPanel(vm: HarfViewModel, item: Layer) {
                         )
                         .clickable { vm.editItem("font", true) { it.copy(fontKey = f.key) } },
                 ) {
-                    FontSample(f.key, textColor, Modifier.fillMaxSize())
+                    FontSample(f.key, textColor, sample, Modifier.fillMaxSize())
                     Text(
                         text = f.name,
                         style = MaterialTheme.typography.labelSmall,

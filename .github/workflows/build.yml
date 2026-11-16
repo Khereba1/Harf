@@ -91,6 +91,57 @@ jobs:
           get permanentmarker/PermanentMarker-Regular.ttf PermanentMarker-Regular.ttf
           get specialelite/SpecialElite-Regular.ttf SpecialElite-Regular.ttf
           get blackopsone/BlackOpsOne-Regular.ttf BlackOpsOne-Regular.ttf
+          get harmattan/Harmattan-Regular.ttf Harmattan-Regular.ttf
+          get harmattan/Harmattan-Bold.ttf Harmattan-Bold.ttf
+          get lateef/Lateef-Regular.ttf Lateef-Regular.ttf
+          get rakkas/Rakkas-Regular.ttf Rakkas-Regular.ttf
+          get katibeh/Katibeh-Regular.ttf Katibeh-Regular.ttf
+          get mirza/Mirza-Regular.ttf Mirza-Regular.ttf
+          get mirza/Mirza-Bold.ttf Mirza-Bold.ttf
+          get jomhuria/Jomhuria-Regular.ttf Jomhuria-Regular.ttf
+          get arefruqaa/ArefRuqaa-Regular.ttf ArefRuqaa-Regular.ttf
+          get arefruqaa/ArefRuqaa-Bold.ttf ArefRuqaa-Bold.ttf
+          get blaka/Blaka-Regular.ttf Blaka-Regular.ttf
+          get gulzar/Gulzar-Regular.ttf Gulzar-Regular.ttf
+          get amiriquran/AmiriQuran-Regular.ttf AmiriQuran-Regular.ttf
+          get ibmplexsansarabic/IBMPlexSansArabic-Regular.ttf IBMPlexSansArabic-Regular.ttf
+          get ibmplexsansarabic/IBMPlexSansArabic-Bold.ttf IBMPlexSansArabic-Bold.ttf
+          get cairo/Cairo%5Bslnt%2Cwght%5D.ttf Cairo-Regular.ttf
+          get elmessiri/ElMessiri%5Bwght%5D.ttf ElMessiri-Regular.ttf
+          get reemkufi/ReemKufi%5Bwght%5D.ttf ReemKufi-Regular.ttf
+          get changa/Changa%5Bwght%5D.ttf Changa-Regular.ttf
+          get lemonada/Lemonada%5Bwght%5D.ttf Lemonada-Regular.ttf
+          get markazitext/MarkaziText%5Bwght%5D.ttf MarkaziText-Regular.ttf
+          get notokufiarabic/NotoKufiArabic%5Bwght%5D.ttf NotoKufiArabic-Regular.ttf
+          get greatvibes/GreatVibes-Regular.ttf GreatVibes-Regular.ttf
+          get sacramento/Sacramento-Regular.ttf Sacramento-Regular.ttf
+          get cookie/Cookie-Regular.ttf Cookie-Regular.ttf
+          get yellowtail/Yellowtail-Regular.ttf Yellowtail-Regular.ttf
+          get kaushanscript/KaushanScript-Regular.ttf KaushanScript-Regular.ttf
+          get shadowsintolight/ShadowsIntoLight.ttf ShadowsIntoLight.ttf
+          get indieflower/IndieFlower-Regular.ttf IndieFlower-Regular.ttf
+          get gochihand/GochiHand-Regular.ttf GochiHand-Regular.ttf
+          get caveatbrush/CaveatBrush-Regular.ttf CaveatBrush-Regular.ttf
+          get rocksalt/RockSalt-Regular.ttf RockSalt-Regular.ttf
+          get amaticsc/AmaticSC-Regular.ttf AmaticSC-Regular.ttf
+          get amaticsc/AmaticSC-Bold.ttf AmaticSC-Bold.ttf
+          get chewy/Chewy-Regular.ttf Chewy-Regular.ttf
+          get luckiestguy/LuckiestGuy-Regular.ttf LuckiestGuy-Regular.ttf
+          get bungee/Bungee-Regular.ttf Bungee-Regular.ttf
+          get staatliches/Staatliches-Regular.ttf Staatliches-Regular.ttf
+          get archivoblack/ArchivoBlack-Regular.ttf ArchivoBlack-Regular.ttf
+          get alfaslabone/AlfaSlabOne-Regular.ttf AlfaSlabOne-Regular.ttf
+          get paytoneone/PaytoneOne-Regular.ttf PaytoneOne-Regular.ttf
+          get bowlbyone/BowlbyOne-Regular.ttf BowlbyOne-Regular.ttf
+          get russoone/RussoOne-Regular.ttf RussoOne-Regular.ttf
+          get monoton/Monoton-Regular.ttf Monoton-Regular.ttf
+          get limelight/Limelight-Regular.ttf Limelight-Regular.ttf
+          get creepster/Creepster-Regular.ttf Creepster-Regular.ttf
+          get fascinate/Fascinate-Regular.ttf Fascinate-Regular.ttf
+          get unifrakturcook/UnifrakturCook-Bold.ttf UnifrakturCook-Bold.ttf
+          get lato/Lato-Regular.ttf Lato-Regular.ttf
+          get lato/Lato-Bold.ttf Lato-Bold.ttf
+          get courierprime/CourierPrime-Regular.ttf CourierPrime-Regular.ttf
           echo "Fonts bundled: $(ls app/src/main/assets/fonts | wc -l)"
 
       - name: Build release APK

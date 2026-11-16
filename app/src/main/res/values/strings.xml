@@ -163,4 +163,6 @@
     <string name="copy_style">Copy style</string>
     <string name="paste_style">Paste style</string>
     <string name="style_copied">Style copied</string>
+    <string name="tab_font_ar">Arabic fonts</string>
+    <string name="tab_font_en">English fonts</string>
 </resources>

@@ -95,3 +95,4 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - edit15 (v2.6): perf — Renderer text layout cache (CacheKey on layout-relevant fields, main thread only, Renderer.clearCache()).
 - edit16 (v2.7): align buttons (VM.alignSelected, AlignRow at top of LayoutPanel).
 - edit17 (v2.8): copy/paste style (VM.styleClip/copyStyle/pasteStyle, action strip buttons, ic_paste). Decision: NO two-flavor (offline/online) split.
+- edit18 (v2.9): fonts split into Arabic / English sub-tabs (FontStore.fontsFor, arabicPrefixes list must be extended when adding Arabic fonts), ~50 more fonts in the workflow download step.
