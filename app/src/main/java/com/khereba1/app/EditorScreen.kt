@@ -372,6 +372,24 @@ private fun cropHandleAt(r: CropRect, f: Fit, x: Float, y: Float, tol: Float, co
     return 0
 }
 
+/** The selected layer, if (x, y) in view pixels is on one of its four corner handles; otherwise null. */
+private fun cornerHandleLayer(p: Project, selectedId: Long?, f: Fit, x: Float, y: Float, tol: Float): Layer? {
+    val sel = p.items.firstOrNull { it.id == selectedId } ?: return null
+    if (sel.type == TYPE_DRAW || sel.locked || !sel.visible) return null
+    val b = Renderer.boxOf(sel, p.docW)
+    val a = Math.toRadians(sel.rotation.toDouble())
+    val ca = kotlin.math.cos(a).toFloat()
+    val sa = kotlin.math.sin(a).toFloat()
+    for (i in 0 until 4) {
+        val lx = if (i % 2 == 0) -b.w / 2f else b.w / 2f
+        val ly = if (i < 2) -b.h / 2f else b.h / 2f
+        val vx = f.ox + (sel.cx + lx * ca - ly * sa) * f.scale
+        val vy = f.oy + (sel.cy + lx * sa + ly * ca) * f.scale
+        if (kotlin.math.abs(x - vx) <= tol && kotlin.math.abs(y - vy) <= tol) return sel
+    }
+    return null
+}
+
 private fun shareImage(context: Context, uri: Uri) {
     try {
         val send = Intent(Intent.ACTION_SEND)
@@ -406,6 +424,15 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val proj = vm.project
+                val handleLayer = if (proj != null && vm.crop == null && !vm.picking && !drawState.value) {
+                    cornerHandleLayer(
+                        proj, vm.selectedId,
+                        fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH),
+                        down.position.x, down.position.y, 26.dp.toPx(),
+                    )
+                } else {
+                    null
+                }
                 if (proj != null && vm.crop != null) {
                     val fc = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
                     down.consume()
@@ -464,6 +491,25 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         go = ev.changes.any { it.pressed }
                     }
                     vm.endStroke()
+                } else if (proj != null && handleLayer != null) {
+                    // dragging a corner handle: the size follows the finger's distance from the layer's center
+                    val fr = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
+                    val cxv = fr.ox + handleLayer.cx * fr.scale
+                    val cyv = fr.oy + handleLayer.cy * fr.scale
+                    val d0 = kotlin.math.max(12f, kotlin.math.hypot(down.position.x - cxv, down.position.y - cyv))
+                    down.consume()
+                    vm.beginResize()
+                    var go = true
+                    while (go) {
+                        val ev = awaitPointerEvent()
+                        val ch = ev.changes.firstOrNull { it.id == down.id } ?: ev.changes.first()
+                        if (ch.pressed) {
+                            vm.resizeTo(kotlin.math.hypot(ch.position.x - cxv, ch.position.y - cyv) / d0)
+                        }
+                        ch.consume()
+                        go = ev.changes.any { it.pressed }
+                    }
+                    vm.endGesture()
                 } else if (proj != null) {
                     val f0 = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
                     val docX = (down.position.x - f0.ox) / f0.scale

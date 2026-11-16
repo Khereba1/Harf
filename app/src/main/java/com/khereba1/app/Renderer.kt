@@ -436,7 +436,7 @@ object Renderer {
         ring.style = Paint.Style.STROKE
         ring.strokeWidth = 2f * invScale
         ring.color = color
-        val rad = 5.5f * invScale
+        val rad = 7f * invScale
         val xs = floatArrayOf(l, r, l, r)
         val ys = floatArrayOf(t, t, bt, bt)
         for (i in 0 until 4) {

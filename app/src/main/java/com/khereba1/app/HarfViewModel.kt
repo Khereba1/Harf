@@ -627,6 +627,31 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         scheduleSave()
     }
 
+    private var resizeBase = 1f
+
+    /** Starts a corner-handle resize of the selected layer. */
+    fun beginResize() {
+        coalesceKey = null
+        resizeBase = project?.items?.firstOrNull { it.id == selectedId }?.size ?: 1f
+    }
+
+    /** Sets the size to the size at [beginResize] times [factor]. */
+    fun resizeTo(factor: Float) {
+        val id = selectedId ?: return
+        edit("resize", false) { p ->
+            p.copy(
+                items = p.items.map { t ->
+                    if (t.id == id && !t.locked && t.type != TYPE_DRAW) {
+                        val maxSize = if (t.type == TYPE_TEXT) p.docW * 0.9f else p.docW * 2f
+                        t.copy(size = (resizeBase * factor).coerceIn(6f, maxSize))
+                    } else {
+                        t
+                    }
+                },
+            )
+        }
+    }
+
     fun beginGesture() {
         coalesceKey = null
         val sel = project?.items?.firstOrNull { it.id == selectedId }
