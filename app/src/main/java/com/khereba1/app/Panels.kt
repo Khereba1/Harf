@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -167,14 +168,14 @@ fun ColorPanel(vm: HarfViewModel, item: Layer, label: String) {
 
 /** Six buttons that snap the selected layer to the edges or centers of the canvas. */
 @Composable
-private fun AlignRow(vm: HarfViewModel) {
+private fun AlignRow(onAlign: (Int?, Int?) -> Unit) {
     val chips = listOf<Pair<String, () -> Unit>>(
-        "⇤" to { vm.alignSelected(-1, null) },
-        "↔" to { vm.alignSelected(0, null) },
-        "⇥" to { vm.alignSelected(1, null) },
-        "⤒" to { vm.alignSelected(null, -1) },
-        "↕" to { vm.alignSelected(null, 0) },
-        "⤓" to { vm.alignSelected(null, 1) },
+        "⇤" to { onAlign(-1, null) },
+        "↔" to { onAlign(0, null) },
+        "⇥" to { onAlign(1, null) },
+        "⤒" to { onAlign(null, -1) },
+        "↕" to { onAlign(null, 0) },
+        "⤓" to { onAlign(null, 1) },
     )
     Row(
         modifier = Modifier
@@ -209,7 +210,7 @@ fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp),
     ) {
-        AlignRow(vm)
+        AlignRow { h, v -> vm.alignSelected(h, v) }
         LabeledSlider(
             label = stringResource(R.string.size_label),
             value = item.size / docW,
@@ -951,8 +952,9 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                 .fillMaxSize()
                 .padding(horizontal = 8.dp),
         ) {
+            item { MultiToggleRow(vm) }
             items(rows, key = { it.id }) { layer ->
-                val isSelected = layer.id == vm.selectedId
+                val isSelected = if (vm.multiMode) layer.id in vm.multi else layer.id == vm.selectedId
                 val label = when (layer.type) {
                     TYPE_SHAPE -> shapeLabel
                     TYPE_IMAGE -> imageLabel
@@ -964,7 +966,7 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                        .clickable { vm.select(layer.id) }
+                        .clickable { if (vm.multiMode) vm.toggleMulti(layer.id) else vm.select(layer.id) }
                         .padding(start = 8.dp, top = 3.dp, bottom = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -992,6 +994,78 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
             }
             item { BackgroundRow(vm, project) }
         }
+    }
+}
+
+/** Tools for the layers picked with "Select multiple": align, distribute, copy, delete. */
+@Composable
+fun MultiPanel(vm: HarfViewModel) {
+    val count = vm.multi.size
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            if (count == 0) stringResource(R.string.multi_hint) else stringResource(R.string.multi_count, count),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        if (count >= 2) {
+            AlignRow { h, v -> vm.alignMulti(h, v) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { vm.distributeMulti(true) },
+                    enabled = count >= 3,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text(stringResource(R.string.distribute_h), maxLines = 1) }
+                OutlinedButton(
+                    onClick = { vm.distributeMulti(false) },
+                    enabled = count >= 3,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                ) { Text(stringResource(R.string.distribute_v), maxLines = 1) }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { vm.duplicateMulti() },
+                enabled = count >= 1,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.duplicate), maxLines = 1) }
+            OutlinedButton(
+                onClick = { vm.deleteMulti() },
+                enabled = count >= 1,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.delete), maxLines = 1) }
+            Button(
+                onClick = { vm.stopMulti() },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(14.dp),
+            ) { Text(stringResource(R.string.multi_done), maxLines = 1) }
+        }
+    }
+}
+
+/** The "Select multiple" switch at the top of the layers list. */
+@Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+private fun MultiToggleRow(vm: HarfViewModel) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FilterChip(
+            selected = vm.multiMode,
+            onClick = { if (vm.multiMode) vm.stopMulti() else vm.startMulti() },
+            label = { Text(stringResource(R.string.multi_select), maxLines = 1) },
+        )
     }
 }
 

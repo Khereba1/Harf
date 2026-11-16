@@ -61,7 +61,9 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
     var textTab by remember { mutableIntStateOf(0) }
     var shapeTab by remember { mutableIntStateOf(0) }
     var imageTab by remember { mutableIntStateOf(0) }
-    if (selected == null) {
+    if (vm.multiMode) {
+        MultiPanel(vm)
+    } else if (selected == null) {
         CenterHint(stringResource(R.string.hint_empty))
     } else if (selected.type == TYPE_TEXT) {
         val labels = listOf(

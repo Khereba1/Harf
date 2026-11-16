@@ -196,7 +196,7 @@ fun EditorScreen(vm: HarfViewModel) {
                         { Prefs.updateGrid(!Prefs.gridOn) },
                         tint = if (Prefs.gridOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (selected != null) {
+                    if (selected != null && !vm.multiMode) {
                         if (selected.type == TYPE_TEXT) {
                             IconAction(R.drawable.ic_edit, stringResource(R.string.edit_text), { textDialog = DIALOG_EDIT })
                         }
@@ -436,7 +436,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val proj = vm.project
-                val handleLayer = if (proj != null && vm.crop == null && !vm.picking && !drawState.value && !Prefs.dragResize) {
+                val handleLayer = if (proj != null && vm.crop == null && !vm.picking && !drawState.value && !Prefs.dragResize && !vm.multiMode) {
                     cornerHandleLayer(
                         proj, vm.selectedId,
                         fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH),
@@ -503,6 +503,32 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         go = ev.changes.any { it.pressed }
                     }
                     vm.endStroke()
+                } else if (proj != null && vm.multiMode) {
+                    // several layers picked: tap toggles a layer, dragging one of them moves them all
+                    val fm = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
+                    val hitM = Renderer.hitTest(
+                        proj,
+                        (down.position.x - fm.ox) / fm.scale,
+                        (down.position.y - fm.oy) / fm.scale,
+                        24f / fm.scale,
+                    )
+                    val slopM = viewConfiguration.touchSlop
+                    var travelledM = 0f
+                    var goM = true
+                    vm.beginMultiMove()
+                    while (goM) {
+                        val ev = awaitPointerEvent()
+                        val panM = ev.calculatePan()
+                        travelledM += panM.getDistance()
+                        if (hitM != null && hitM in vm.multi && travelledM > slopM) {
+                            vm.moveMulti(panM.x / fm.scale, panM.y / fm.scale)
+                            for (change in ev.changes) {
+                                if (change.positionChanged()) change.consume()
+                            }
+                        }
+                        goM = ev.changes.any { it.pressed }
+                    }
+                    if (travelledM <= slopM && hitM != null) vm.toggleMulti(hitM)
                 } else if (proj != null && handleLayer != null) {
                     // dragging a corner handle: the size follows the finger's distance from the layer's center
                     val fr = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
@@ -628,7 +654,12 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     }
                     nc.restore()
                 }
-                Renderer.drawDocument(nc, project, photo, vm.images, selectedId, 1f / f.scale, accent)
+                Renderer.drawDocument(
+                    nc, project, photo, vm.images,
+                    if (vm.multiMode) null else selectedId,
+                    1f / f.scale, accent,
+                    if (vm.multiMode) vm.multi else emptySet(),
+                )
                 if (Prefs.gridOn) {
                     val gl = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
                     gl.style = android.graphics.Paint.Style.STROKE

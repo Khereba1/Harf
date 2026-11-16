@@ -825,6 +825,147 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         return Pair((b.w * c + b.h * s) / 2f, (b.w * s + b.h * c) / 2f)
     }
 
+    // ---------- selecting several layers ----------
+
+    /** True while the user picks several layers to move, align or delete together. */
+    var multiMode: Boolean by mutableStateOf(false)
+        private set
+
+    var multi: Set<Long> by mutableStateOf(emptySet())
+        private set
+
+    fun startMulti() {
+        val cur = selectedId
+        multi = if (cur != null) setOf(cur) else emptySet()
+        multiMode = true
+    }
+
+    fun stopMulti() {
+        multiMode = false
+        multi = emptySet()
+    }
+
+    fun toggleMulti(id: Long) {
+        multi = if (id in multi) multi - id else multi + id
+    }
+
+    fun beginMultiMove() {
+        coalesceKey = null
+    }
+
+    private fun shiftLayer(l: Layer, dx: Float, dy: Float): Layer =
+        if (l.type == TYPE_DRAW) {
+            l.copy(strokes = bakeStrokes(l.strokes, 0f, 0f, dx, dy, 1f, 0f))
+        } else {
+            l.copy(cx = l.cx + dx, cy = l.cy + dy)
+        }
+
+    fun moveMulti(dx: Float, dy: Float) {
+        val ids = multi
+        if (ids.isEmpty()) return
+        edit("multimove", false) { p ->
+            p.copy(items = p.items.map { if (it.id in ids && !it.locked) shiftLayer(it, dx, dy) else it })
+        }
+    }
+
+    fun deleteMulti() {
+        val ids = multi
+        if (ids.isEmpty()) return
+        edit("multidelete", true) { p -> p.copy(items = p.items.filter { it.id !in ids }) }
+        multi = emptySet()
+        if (selectedId in ids) selectedId = null
+    }
+
+    fun duplicateMulti() {
+        val p = project ?: return
+        val ids = multi
+        val src = p.items.filter { it.id in ids }
+        if (src.isEmpty()) return
+        val shift = p.docW * 0.04f
+        var next = p.nextId
+        val copies = ArrayList<Layer>()
+        val newIds = HashSet<Long>()
+        for (l in src) {
+            copies.add(shiftLayer(l.copy(id = next), shift, shift))
+            newIds.add(next)
+            next++
+        }
+        pushUndo(p)
+        coalesceKey = null
+        project = p.copy(items = p.items + copies, nextId = next)
+        multi = newIds
+        scheduleSave()
+    }
+
+    private fun applyShifts(key: String, shifts: Map<Long, Pair<Float, Float>>) {
+        if (shifts.isEmpty()) return
+        edit(key, true) { p ->
+            p.copy(
+                items = p.items.map { l ->
+                    val d = shifts[l.id]
+                    if (d != null) shiftLayer(l, d.first, d.second) else l
+                },
+            )
+        }
+    }
+
+    /** Aligns the picked layers to each other. h / v: -1 start, 0 center, 1 end, null leaves that axis alone. */
+    fun alignMulti(h: Int?, v: Int?) {
+        val p = project ?: return
+        val members = p.items.filter { it.id in multi && !it.locked }
+        if (members.size < 2) return
+        var minL = Float.MAX_VALUE
+        var maxR = -Float.MAX_VALUE
+        var minT = Float.MAX_VALUE
+        var maxB = -Float.MAX_VALUE
+        for (l in members) {
+            val half = halfExtents(l, p.docW)
+            val cx = Renderer.centerX(l)
+            val cy = Renderer.centerY(l)
+            if (cx - half.first < minL) minL = cx - half.first
+            if (cx + half.first > maxR) maxR = cx + half.first
+            if (cy - half.second < minT) minT = cy - half.second
+            if (cy + half.second > maxB) maxB = cy + half.second
+        }
+        val shifts = HashMap<Long, Pair<Float, Float>>()
+        for (l in members) {
+            val half = halfExtents(l, p.docW)
+            val cx = Renderer.centerX(l)
+            val cy = Renderer.centerY(l)
+            val dx = when (h) {
+                -1 -> minL - (cx - half.first)
+                0 -> (minL + maxR) / 2f - cx
+                1 -> maxR - (cx + half.first)
+                else -> 0f
+            }
+            val dy = when (v) {
+                -1 -> minT - (cy - half.second)
+                0 -> (minT + maxB) / 2f - cy
+                1 -> maxB - (cy + half.second)
+                else -> 0f
+            }
+            shifts[l.id] = Pair(dx, dy)
+        }
+        applyShifts("multialign", shifts)
+    }
+
+    /** Spaces three or more picked layers evenly between the first and the last one. */
+    fun distributeMulti(horizontal: Boolean) {
+        val p = project ?: return
+        val members = p.items.filter { it.id in multi && !it.locked }
+        if (members.size < 3) return
+        val sorted = members.sortedBy { if (horizontal) Renderer.centerX(it) else Renderer.centerY(it) }
+        val first = if (horizontal) Renderer.centerX(sorted.first()) else Renderer.centerY(sorted.first())
+        val last = if (horizontal) Renderer.centerX(sorted.last()) else Renderer.centerY(sorted.last())
+        val shifts = HashMap<Long, Pair<Float, Float>>()
+        for ((i, l) in sorted.withIndex()) {
+            val target = first + (last - first) * i / (sorted.size - 1).toFloat()
+            val cur = if (horizontal) Renderer.centerX(l) else Renderer.centerY(l)
+            shifts[l.id] = if (horizontal) Pair(target - cur, 0f) else Pair(0f, target - cur)
+        }
+        applyShifts("multidistribute", shifts)
+    }
+
     fun togglePhotoVisible() {
         edit("photovisible", true) { p -> p.copy(photoHidden = !p.photoHidden) }
     }

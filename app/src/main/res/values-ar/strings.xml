@@ -180,4 +180,10 @@
     <string name="resize_double_hint">مقفولة: التكبير بالقرص أو بسحب الأركان. مفتوحة: اضغط مرتين بسرعة على العنصر واسحب في الضغطة التانية لتكبيره أو تصغيره، وبيتقفل القرص ومقابض الأركان.</string>
     <string name="toggle_snap">تشغيل أو إيقاف الإرشادات الذكية</string>
     <string name="toggle_grid">تشغيل أو إيقاف الشبكة</string>
+    <string name="multi_select">تحديد متعدد</string>
+    <string name="multi_count">تم تحديد %1$d طبقات</string>
+    <string name="multi_hint">اضغط على الطبقات في الكانفاس أو من قائمة الطبقات لاختيارها. اسحب واحدة منها لتحريكهم كلهم.</string>
+    <string name="multi_done">تم</string>
+    <string name="distribute_h">توزيع أفقي</string>
+    <string name="distribute_v">توزيع رأسي</string>
 </resources>

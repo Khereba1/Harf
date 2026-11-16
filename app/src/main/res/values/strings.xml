@@ -183,4 +183,10 @@
     <string name="resize_double_hint">Off: pinch, or drag the corners. On: tap twice quickly on a layer and drag on the second tap to resize it. Pinching and the corner handles are then turned off.</string>
     <string name="toggle_snap">Smart guides on or off</string>
     <string name="toggle_grid">Grid on or off</string>
+    <string name="multi_select">Select multiple</string>
+    <string name="multi_count">%1$d layers selected</string>
+    <string name="multi_hint">Tap layers on the canvas or in the Layers list to pick them. Drag one of them to move them all.</string>
+    <string name="multi_done">Done</string>
+    <string name="distribute_h">Spread horizontally</string>
+    <string name="distribute_v">Spread vertically</string>
 </resources>

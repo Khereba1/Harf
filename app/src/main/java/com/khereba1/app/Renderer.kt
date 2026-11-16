@@ -516,6 +516,7 @@ object Renderer {
         selectedId: Long?,
         invScale: Float,
         selectionColor: Int,
+        extraSelected: Set<Long> = emptySet(),
     ) {
         val saved = canvas.save()
         canvas.clipRect(0f, 0f, p.docW.toFloat(), p.docH.toFloat())
@@ -538,9 +539,9 @@ object Renderer {
         }
         for (item in p.items) drawLayer(canvas, item, p.docW, p.docH, images)
         canvas.restoreToCount(saved)
-        if (selectedId != null) {
+        if (selectedId != null || extraSelected.isNotEmpty()) {
             for (item in p.items) {
-                if (item.id == selectedId && item.visible) {
+                if ((item.id == selectedId || item.id in extraSelected) && item.visible) {
                     if (item.type == TYPE_DRAW) {
                         val r = drawBounds(item)
                         if (r != null) drawSelection(canvas, item.copy(cx = r.centerX(), cy = r.centerY(), rotation = 0f), p.docW, invScale, selectionColor)
