@@ -18,6 +18,7 @@ class App : Application() {
         super.onCreate()
         AppLog.init(this)
         FontStore.init(this)
+        Prefs.init(this)
     }
 }
 

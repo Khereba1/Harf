@@ -519,8 +519,8 @@ object Renderer {
     ) {
         val saved = canvas.save()
         canvas.clipRect(0f, 0f, p.docW.toFloat(), p.docH.toFloat())
-        canvas.drawColor(p.bgColor)
-        if (photo != null && !photo.isRecycled) {
+        if (!p.bgTransparent) canvas.drawColor(p.bgColor)
+        if (photo != null && !photo.isRecycled && !p.photoHidden) {
             val pp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
             val cm = colorMatrixOf(p)
             if (cm != null) pp.colorFilter = ColorMatrixColorFilter(cm)
@@ -583,7 +583,7 @@ object Renderer {
             val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(out)
             canvas.scale(w.toFloat() / p.docW, h.toFloat() / p.docH)
-            drawDocument(canvas, p, photo, images, null, 1f, 0)
+            drawDocument(canvas, if (p.bgTransparent) p.copy(bgTransparent = false) else p, photo, images, null, 1f, 0)
             out
         } catch (e: Throwable) {
             AppLog.log("EXPORT", "Thumbnail failed", e)

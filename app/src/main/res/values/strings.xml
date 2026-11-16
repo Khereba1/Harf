@@ -169,4 +169,18 @@
     <string name="size_width">Width (px)</string>
     <string name="size_height">Height (px)</string>
     <string name="size_custom_hint">From %1$d to %2$d pixels for each side</string>
+    <string name="layer_background">Background</string>
+    <string name="layer_photo_bg">Photo and background</string>
+    <string name="photo_visible">Show or hide the photo</string>
+    <string name="bg_transparent">Transparent</string>
+    <string name="guides_title">Guides and grid</string>
+    <string name="snap_label">Smart guides: snap to the center and to other layers</string>
+    <string name="grid_show">Show grid</string>
+    <string name="grid_snap">Snap to grid</string>
+    <string name="grid_cells">Grid cells across the width</string>
+    <string name="gesture_title">Gestures</string>
+    <string name="resize_double">Resize with double tap and drag</string>
+    <string name="resize_double_hint">Off: pinch, or drag the corners. On: tap twice quickly on a layer and drag on the second tap to resize it. Pinching and the corner handles are then turned off.</string>
+    <string name="toggle_snap">Smart guides on or off</string>
+    <string name="toggle_grid">Grid on or off</string>
 </resources>

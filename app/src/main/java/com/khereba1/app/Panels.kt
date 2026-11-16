@@ -936,11 +936,14 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
     val drawLabel = stringResource(R.string.layer_drawing)
     val rows = remember(project.items) { project.items.reversed() }
     if (rows.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                text = stringResource(R.string.layers_empty),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text(
+                    text = stringResource(R.string.layers_empty),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            BackgroundRow(vm, project)
         }
     } else {
         LazyColumn(
@@ -987,6 +990,49 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                     MiniButton(R.drawable.ic_trash, stringResource(R.string.delete), dim) { vm.deleteLayer(layer.id) }
                 }
             }
+            item { BackgroundRow(vm, project) }
         }
+    }
+}
+
+/** The photo / plain background shown as the bottom layer: hide the photo, or make the background see-through. */
+@Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+private fun BackgroundRow(vm: HarfViewModel, project: Project) {
+    val hasPhoto = vm.photo != null
+    val dim = MaterialTheme.colorScheme.onSurfaceVariant
+    val acc = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (project.bgTransparent) Color(0xFFCFCFCF) else Color(project.bgColor))
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+        )
+        Text(
+            text = stringResource(if (hasPhoto) R.string.layer_photo_bg else R.string.layer_background),
+            modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (hasPhoto) {
+            MiniButton(
+                if (project.photoHidden) R.drawable.ic_eye_off else R.drawable.ic_eye,
+                stringResource(R.string.photo_visible),
+                if (project.photoHidden) acc else dim,
+            ) { vm.togglePhotoVisible() }
+        }
+        FilterChip(
+            selected = project.bgTransparent,
+            onClick = { vm.setTransparentBackground(!project.bgTransparent) },
+            label = { Text(stringResource(R.string.bg_transparent), maxLines = 1) },
+        )
     }
 }

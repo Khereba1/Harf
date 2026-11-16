@@ -532,6 +532,7 @@ private fun LangChip(label: String, modifier: Modifier, onClick: () -> Unit) {
 }
 
 @Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 fun SettingsDialog(context: Context, onDismiss: () -> Unit, onLanguage: (String) -> Unit) {
     var logText by remember { mutableStateOf(AppLog.read()) }
     var showLog by remember { mutableStateOf(false) }
@@ -557,6 +558,27 @@ fun SettingsDialog(context: Context, onDismiss: () -> Unit, onLanguage: (String)
                 LangChip(stringResource(R.string.lang_arabic), Modifier.weight(1f)) { onLanguage("ar") }
                 LangChip(stringResource(R.string.lang_english), Modifier.weight(1f)) { onLanguage("en") }
             }
+            Text(stringResource(R.string.guides_title), style = MaterialTheme.typography.titleSmall)
+            SwitchRow(stringResource(R.string.snap_label), Prefs.snapOn) { Prefs.updateSnap(it) }
+            SwitchRow(stringResource(R.string.grid_show), Prefs.gridOn) { Prefs.updateGrid(it) }
+            SwitchRow(stringResource(R.string.grid_snap), Prefs.gridSnap) { Prefs.updateGridSnap(it) }
+            Text(stringResource(R.string.grid_cells), style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (n in listOf(4, 6, 8, 12, 16)) {
+                    androidx.compose.material3.FilterChip(
+                        selected = Prefs.gridDivs == n,
+                        onClick = { Prefs.updateGridDivs(n) },
+                        label = { Text(n.toString(), maxLines = 1) },
+                    )
+                }
+            }
+            Text(stringResource(R.string.gesture_title), style = MaterialTheme.typography.titleSmall)
+            SwitchRow(stringResource(R.string.resize_double), Prefs.dragResize) { Prefs.updateDragResize(it) }
+            Text(
+                stringResource(R.string.resize_double_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleSmall)
             Text(stringResource(R.string.about_text), style = MaterialTheme.typography.bodySmall)
             Text(

@@ -784,30 +784,53 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         guideY = null
     }
 
-    private fun snapAxis(raw: Float, half: Float, total: Float, thr: Float, edges: Boolean): Pair<Float, Float?> {
+    /**
+     * Finds the nearest alignment for one axis. The layer's left/center/right (raw - half, raw, raw + half) are compared
+     * with every target line, and with the nearest grid line when [grid] > 0. Returns the new center and the line to show.
+     */
+    private fun snapAxis(raw: Float, half: Float, thr: Float, targets: List<Float>, grid: Float): Pair<Float, Float?> {
         var best = raw
         var line: Float? = null
         var bestD = thr
-        val dc = kotlin.math.abs(raw - total / 2f)
-        if (dc < bestD) {
-            bestD = dc
-            best = total / 2f
-            line = total / 2f
-        }
-        if (edges) {
-            val dl = kotlin.math.abs(raw - half)
-            if (dl < bestD) {
-                bestD = dl
-                best = half
-                line = 0f
+        val refs = floatArrayOf(-half, 0f, half)
+        for (ref in refs) {
+            for (t in targets) {
+                val d = kotlin.math.abs(raw + ref - t)
+                if (d < bestD) {
+                    bestD = d
+                    best = t - ref
+                    line = t
+                }
             }
-            val dr = kotlin.math.abs(raw + half - total)
-            if (dr < bestD) {
-                best = total - half
-                line = total
+            if (grid > 0f) {
+                val g = Math.round((raw + ref) / grid) * grid
+                val d = kotlin.math.abs(raw + ref - g)
+                if (d < bestD) {
+                    bestD = d
+                    best = g - ref
+                    line = g
+                }
             }
         }
         return Pair(best, line)
+    }
+
+    /** Half width and half height of the layer's bounding box on the canvas (turning included). */
+    private fun halfExtents(l: Layer, docW: Int): Pair<Float, Float> {
+        val b = Renderer.boxOf(l, docW)
+        if (l.type == TYPE_DRAW) return Pair(b.w / 2f, b.h / 2f)
+        val a = Math.toRadians(l.rotation.toDouble())
+        val c = kotlin.math.abs(kotlin.math.cos(a)).toFloat()
+        val s = kotlin.math.abs(kotlin.math.sin(a)).toFloat()
+        return Pair((b.w * c + b.h * s) / 2f, (b.w * s + b.h * c) / 2f)
+    }
+
+    fun togglePhotoVisible() {
+        edit("photovisible", true) { p -> p.copy(photoHidden = !p.photoHidden) }
+    }
+
+    fun setTransparentBackground(on: Boolean) {
+        edit("bgtransparent", true) { p -> p.copy(bgTransparent = on) }
     }
 
     private fun normalizeAngle(a: Float): Float {
@@ -828,11 +851,33 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         var ny = rawY
         var gx: Float? = null
         var gy: Float? = null
-        if (snap > 0f) {
-            val box = Renderer.boxOf(t0, cur.docW)
-            val edges = kotlin.math.abs(t0.rotation) < 0.5f
-            val sx = snapAxis(rawX, box.w / 2f, cur.docW.toFloat(), snap, edges)
-            val sy = snapAxis(rawY, box.h / 2f, cur.docH.toFloat(), snap, edges)
+        if (snap > 0f && (Prefs.snapOn || Prefs.gridSnap)) {
+            val half = halfExtents(t0, cur.docW)
+            val tx = ArrayList<Float>()
+            val ty = ArrayList<Float>()
+            if (Prefs.snapOn) {
+                tx.add(0f)
+                tx.add(cur.docW / 2f)
+                tx.add(cur.docW.toFloat())
+                ty.add(0f)
+                ty.add(cur.docH / 2f)
+                ty.add(cur.docH.toFloat())
+                for (o in cur.items) {
+                    if (o.id == id || !o.visible) continue
+                    val oh = halfExtents(o, cur.docW)
+                    val ox = Renderer.centerX(o)
+                    val oy = Renderer.centerY(o)
+                    tx.add(ox - oh.first)
+                    tx.add(ox)
+                    tx.add(ox + oh.first)
+                    ty.add(oy - oh.second)
+                    ty.add(oy)
+                    ty.add(oy + oh.second)
+                }
+            }
+            val grid = if (Prefs.gridSnap) Prefs.gridStep(cur.docW) else 0f
+            val sx = snapAxis(rawX, half.first, snap, tx, grid)
+            val sy = snapAxis(rawY, half.second, snap, ty, grid)
             nx = sx.first
             ny = sy.first
             gx = sx.second
@@ -1285,7 +1330,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val uri: Uri? = withContext(Dispatchers.IO) {
                 try {
-                    val bmp = Renderer.exportBitmap(p, ph, imgs)
+                    val bmp = Renderer.exportBitmap(if (!png && p.bgTransparent) p.copy(bgTransparent = false) else p, ph, imgs)
                     if (bmp == null) {
                         null
                     } else {

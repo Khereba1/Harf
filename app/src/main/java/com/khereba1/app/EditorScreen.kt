@@ -186,6 +186,16 @@ fun EditorScreen(vm: HarfViewModel) {
                         { textDialog = DIALOG_ADD },
                         tint = MaterialTheme.colorScheme.primary,
                     )
+                    IconAction(
+                        R.drawable.ic_magnet, stringResource(R.string.toggle_snap),
+                        { Prefs.updateSnap(!Prefs.snapOn) },
+                        tint = if (Prefs.snapOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    IconAction(
+                        R.drawable.ic_grid, stringResource(R.string.toggle_grid),
+                        { Prefs.updateGrid(!Prefs.gridOn) },
+                        tint = if (Prefs.gridOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (selected != null) {
                         if (selected.type == TYPE_TEXT) {
                             IconAction(R.drawable.ic_edit, stringResource(R.string.edit_text), { textDialog = DIALOG_EDIT })
@@ -426,7 +436,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val proj = vm.project
-                val handleLayer = if (proj != null && vm.crop == null && !vm.picking && !drawState.value) {
+                val handleLayer = if (proj != null && vm.crop == null && !vm.picking && !drawState.value && !Prefs.dragResize) {
                     cornerHandleLayer(
                         proj, vm.selectedId,
                         fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH),
@@ -521,8 +531,21 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     if (hit != null) vm.notifyCanvasPick()
                     vm.beginGesture()
                     val slop = viewConfiguration.touchSlop
+                    val dragMode = Prefs.dragResize
+                    // "double tap and drag" resize: the second quick tap on the same layer, then dragging
+                    val secondTap = dragMode && hit != null && hit == vm.lastTapId && System.currentTimeMillis() - vm.lastTapAt < 350L
+                    val hitLayer = if (hit != null) proj.items.firstOrNull { it.id == hit } else null
+                    val rcx = if (hitLayer != null) f0.ox + Renderer.centerX(hitLayer) * f0.scale else 0f
+                    val rcy = if (hitLayer != null) f0.oy + Renderer.centerY(hitLayer) * f0.scale else 0f
+                    val rd0 = kotlin.math.max(12f, kotlin.math.hypot(down.position.x - rcx, down.position.y - rcy))
+                    var resizing = false
                     var travelled = 0f
                     var multi = false
+                    // small accidental pinches or twists while moving are ignored until they are clearly deliberate
+                    var zoomAcc = 1f
+                    var rotAcc = 0f
+                    var zoomOn = false
+                    var rotOn = false
                     var go = true
                     while (go) {
                         val ev = awaitPointerEvent()
@@ -532,9 +555,23 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         val rot = ev.calculateRotation()
                         travelled += pan.getDistance()
                         val f = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
-                        if (hit != null && (multi || travelled > slop)) {
-                            if (pan != Offset.Zero || zoom != 1f || rot != 0f) {
-                                vm.transformSelected(pan.x / f.scale, pan.y / f.scale, zoom, rot, 8f / f.scale)
+                        if (secondTap && hitLayer != null && !hitLayer.locked && !multi && travelled > slop) {
+                            if (!resizing) {
+                                vm.beginResize()
+                                resizing = true
+                            }
+                            val pos = ev.changes.first().position
+                            vm.resizeTo(kotlin.math.hypot(pos.x - rcx, pos.y - rcy) / rd0)
+                            for (change in ev.changes) change.consume()
+                        } else if (hit != null && (multi || travelled > slop)) {
+                            zoomAcc *= zoom
+                            rotAcc += rot
+                            if (!zoomOn && kotlin.math.abs(zoomAcc - 1f) > 0.05f) zoomOn = true
+                            if (!rotOn && kotlin.math.abs(rotAcc) > 4f) rotOn = true
+                            val z = if (zoomOn && !dragMode) zoom else 1f
+                            val r = if (rotOn) rot else 0f
+                            if (pan != Offset.Zero || z != 1f || r != 0f) {
+                                vm.transformSelected(pan.x / f.scale, pan.y / f.scale, z, r, 8f / f.scale)
                             }
                             for (change in ev.changes) {
                                 if (change.positionChanged()) change.consume()
@@ -543,6 +580,7 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         go = ev.changes.any { it.pressed }
                     }
                     vm.endGesture()
+                    if (resizing) vm.lastTapId = null
                     if (!multi && travelled <= slop) {
                         val now = System.currentTimeMillis()
                         if (hit != null && hit == vm.lastTapId && now - vm.lastTapAt < 350L) {
@@ -568,7 +606,46 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                 sh.color = android.graphics.Color.BLACK
                 sh.setShadowLayer(28f / f.scale, 0f, 8f / f.scale, 0xB0000000.toInt())
                 nc.drawRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat(), sh)
+                if (project.bgTransparent) {
+                    // checkerboard behind a see-through background
+                    nc.save()
+                    nc.clipRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat())
+                    val cp = android.graphics.Paint()
+                    cp.color = 0xFFFFFFFF.toInt()
+                    nc.drawRect(0f, 0f, project.docW.toFloat(), project.docH.toFloat(), cp)
+                    cp.color = 0xFFCFCFCF.toInt()
+                    val cell = 16f / f.scale
+                    var row = 0
+                    var cy0 = 0f
+                    while (cy0 < project.docH) {
+                        var cx0 = if (row % 2 == 0) 0f else cell
+                        while (cx0 < project.docW) {
+                            nc.drawRect(cx0, cy0, cx0 + cell, cy0 + cell, cp)
+                            cx0 += 2f * cell
+                        }
+                        cy0 += cell
+                        row++
+                    }
+                    nc.restore()
+                }
                 Renderer.drawDocument(nc, project, photo, vm.images, selectedId, 1f / f.scale, accent)
+                if (Prefs.gridOn) {
+                    val gl = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    gl.style = android.graphics.Paint.Style.STROKE
+                    gl.strokeWidth = 1f / f.scale
+                    gl.color = 0x66FFFFFF
+                    val step = Prefs.gridStep(project.docW)
+                    var gx0 = step
+                    while (gx0 < project.docW - 0.5f) {
+                        nc.drawLine(gx0, 0f, gx0, project.docH.toFloat(), gl)
+                        gx0 += step
+                    }
+                    var gy0 = step
+                    while (gy0 < project.docH - 0.5f) {
+                        nc.drawLine(0f, gy0, project.docW.toFloat(), gy0, gl)
+                        gy0 += step
+                    }
+                }
                 val gX = vm.guideX
                 val gY = vm.guideY
                 if (gX != null || gY != null) {

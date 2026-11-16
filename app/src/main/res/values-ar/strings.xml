@@ -166,4 +166,18 @@
     <string name="size_width">العرض (بكسل)</string>
     <string name="size_height">الارتفاع (بكسل)</string>
     <string name="size_custom_hint">من %1$d إلى %2$d بكسل لكل ضلع</string>
+    <string name="layer_background">الخلفية</string>
+    <string name="layer_photo_bg">الصورة والخلفية</string>
+    <string name="photo_visible">إظهار أو إخفاء الصورة</string>
+    <string name="bg_transparent">شفافة</string>
+    <string name="guides_title">الإرشادات والشبكة</string>
+    <string name="snap_label">إرشادات ذكية: مغناطيس للمنتصف والعناصر الأخرى</string>
+    <string name="grid_show">إظهار الشبكة</string>
+    <string name="grid_snap">مغناطيس للشبكة</string>
+    <string name="grid_cells">عدد خانات الشبكة بالعرض</string>
+    <string name="gesture_title">اللمس والحركة</string>
+    <string name="resize_double">التكبير بالضغطتين ثم السحب</string>
+    <string name="resize_double_hint">مقفولة: التكبير بالقرص أو بسحب الأركان. مفتوحة: اضغط مرتين بسرعة على العنصر واسحب في الضغطة التانية لتكبيره أو تصغيره، وبيتقفل القرص ومقابض الأركان.</string>
+    <string name="toggle_snap">تشغيل أو إيقاف الإرشادات الذكية</string>
+    <string name="toggle_grid">تشغيل أو إيقاف الشبكة</string>
 </resources>

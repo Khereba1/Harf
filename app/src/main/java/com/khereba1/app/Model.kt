@@ -91,6 +91,9 @@ data class Project(
     // photo orientation: quarter turns clockwise (0..3) applied after an optional left-right mirror
     val photoRot: Int = 0,
     val photoFlip: Boolean = false,
+    // the photo and the plain background behave like the bottom layer: it can be hidden, or made see-through
+    val photoHidden: Boolean = false,
+    val bgTransparent: Boolean = false,
 )
 
 private fun JSONObject.f(key: String, def: Float): Float = optDouble(key, def.toDouble()).toFloat()
@@ -230,6 +233,8 @@ fun projectToJson(p: Project): JSONObject {
     o.put("fullH", p.fullH)
     o.put("photoRot", p.photoRot)
     o.put("photoFlip", p.photoFlip)
+    o.put("photoHidden", p.photoHidden)
+    o.put("bgTransparent", p.bgTransparent)
     val arr = JSONArray()
     for (t in p.items) arr.put(layerToJson(t))
     o.put("items", arr)
@@ -262,6 +267,8 @@ fun projectFromJson(o: JSONObject): Project {
         fullH = o.optInt("fullH", 0),
         photoRot = o.optInt("photoRot", 0).coerceIn(0, 3),
         photoFlip = o.optBoolean("photoFlip", false),
+        photoHidden = o.optBoolean("photoHidden", false),
+        bgTransparent = o.optBoolean("bgTransparent", false),
         items = items,
         nextId = maxOf(o.optLong("nextId", 1L), maxId + 1L),
     )
