@@ -732,6 +732,7 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
 
     fun select(id: Long?) {
         selectedId = id
+        if (id != null) enterGroup(id)
     }
 
     fun notifyCanvasPick() {
@@ -840,13 +841,75 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         multiMode = true
     }
 
+    /** True when the picked layers are one merged group that was selected by tapping it. */
+    var groupMode: Boolean by mutableStateOf(false)
+        private set
+
     fun stopMulti() {
         multiMode = false
+        groupMode = false
         multi = emptySet()
     }
 
+    /** Tapping any layer of a merged group picks the whole group. */
+    private fun enterGroup(id: Long) {
+        val p = project ?: return
+        val l = p.items.firstOrNull { it.id == id } ?: return
+        if (l.group == 0L) return
+        val members = p.items.filter { it.group == l.group }.map { it.id }.toSet()
+        if (members.size < 2) return
+        multi = members
+        multiMode = true
+        groupMode = true
+    }
+
     fun toggleMulti(id: Long) {
-        multi = if (id in multi) multi - id else multi + id
+        val p = project
+        val l = p?.items?.firstOrNull { it.id == id }
+        val ids: Set<Long> = if (p != null && l != null && l.group != 0L) {
+            p.items.filter { it.group == l.group }.map { it.id }.toSet()
+        } else {
+            setOf(id)
+        }
+        multi = if (id in multi) multi - ids else multi + ids
+    }
+
+    /** True when the picked layers can be merged (two or more that are not already one group). */
+    val multiCanGroup: Boolean
+        get() {
+            val p = project ?: return false
+            val ms = p.items.filter { it.id in multi }
+            if (ms.size < 2) return false
+            val g = ms.first().group
+            return g == 0L || ms.any { it.group != g }
+        }
+
+    val multiCanUngroup: Boolean
+        get() = project?.items?.any { it.id in multi && it.group != 0L } ?: false
+
+    /** Merges the picked layers into a group that moves, aligns and is selected as one, and is saved with the project. */
+    fun groupMulti() {
+        val p = project ?: return
+        val ids = multi
+        if (p.items.count { it.id in ids } < 2) return
+        val g = p.nextId
+        pushUndo(p)
+        coalesceKey = null
+        project = p.copy(
+            items = p.items.map { if (it.id in ids) it.copy(group = g) else it },
+            nextId = g + 1L,
+        )
+        groupMode = true
+        scheduleSave()
+    }
+
+    /** Splits the groups of the picked layers back into separate layers. */
+    fun ungroupMulti() {
+        val p = project ?: return
+        val groups = p.items.filter { it.id in multi && it.group != 0L }.map { it.group }.toSet()
+        if (groups.isEmpty()) return
+        edit("ungroup", true) { q -> q.copy(items = q.items.map { if (it.group in groups) it.copy(group = 0L) else it }) }
+        groupMode = false
     }
 
     fun beginMultiMove() {
@@ -885,10 +948,23 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         var next = p.nextId
         val copies = ArrayList<Layer>()
         val newIds = HashSet<Long>()
+        val groupMap = HashMap<Long, Long>()
         for (l in src) {
-            copies.add(shiftLayer(l.copy(id = next), shift, shift))
-            newIds.add(next)
+            val id = next
             next++
+            var g = 0L
+            if (l.group != 0L) {
+                val known = groupMap[l.group]
+                if (known != null) {
+                    g = known
+                } else {
+                    g = next
+                    next++
+                    groupMap[l.group] = g
+                }
+            }
+            copies.add(shiftLayer(l.copy(id = id, group = g), shift, shift))
+            newIds.add(id)
         }
         pushUndo(p)
         coalesceKey = null
@@ -1068,9 +1144,9 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         val newId = p.nextId
         val shift = p.docW * 0.04f
         val copy = if (src.type == TYPE_DRAW) {
-            src.copy(id = newId, strokes = bakeStrokes(src.strokes, 0f, 0f, shift, shift, 1f, 0f))
+            src.copy(id = newId, group = 0L, strokes = bakeStrokes(src.strokes, 0f, 0f, shift, shift, 1f, 0f))
         } else {
-            src.copy(id = newId, cx = src.cx + shift, cy = src.cy + shift)
+            src.copy(id = newId, group = 0L, cx = src.cx + shift, cy = src.cy + shift)
         }
         pushUndo(p)
         coalesceKey = null

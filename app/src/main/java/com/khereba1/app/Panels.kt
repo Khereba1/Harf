@@ -929,9 +929,27 @@ fun LayerThumb(layer: Layer, images: Map<String, android.graphics.Bitmap>) {
     }
 }
 
-/** All layers, top-most first: select, reorder, hide, lock, delete. */
+/** All layers, top-most first: select, reorder, hide, lock, delete. With several picked, the merge tools sit below the list. */
 @Composable
 fun LayersPanel(vm: HarfViewModel, project: Project) {
+    if (vm.multiMode) {
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().weight(1f)) { LayersList(vm, project) }
+            Column(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                AlignRow { h, v -> vm.alignMulti(h, v) }
+                MultiActions(vm)
+            }
+        }
+    } else {
+        LayersList(vm, project)
+    }
+}
+
+@Composable
+private fun LayersList(vm: HarfViewModel, project: Project) {
     val shapeLabel = stringResource(R.string.layer_shape)
     val imageLabel = stringResource(R.string.layer_image)
     val drawLabel = stringResource(R.string.layer_drawing)
@@ -960,7 +978,7 @@ fun LayersPanel(vm: HarfViewModel, project: Project) {
                     TYPE_IMAGE -> imageLabel
                     TYPE_DRAW -> drawLabel
                     else -> layer.text.replace('\n', ' ')
-                }
+                }.let { if (layer.group != 0L) "⛓ " + it else it }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1014,39 +1032,58 @@ fun MultiPanel(vm: HarfViewModel) {
         )
         if (count >= 2) {
             AlignRow { h, v -> vm.alignMulti(h, v) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { vm.distributeMulti(true) },
-                    enabled = count >= 3,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                ) { Text(stringResource(R.string.distribute_h), maxLines = 1) }
-                OutlinedButton(
-                    onClick = { vm.distributeMulti(false) },
-                    enabled = count >= 3,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                ) { Text(stringResource(R.string.distribute_v), maxLines = 1) }
+        }
+        MultiActions(vm)
+    }
+}
+
+/** Merge / unmerge, spread, copy, delete and finish: one scrollable row of small buttons. */
+@Composable
+private fun MultiActions(vm: HarfViewModel) {
+    val count = vm.multi.size
+    val small = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (vm.multiCanGroup) {
+            Button(onClick = { vm.groupMulti() }, contentPadding = small, modifier = Modifier.height(38.dp)) {
+                Text(stringResource(R.string.group_action), maxLines = 1)
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = { vm.duplicateMulti() },
-                enabled = count >= 1,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text(stringResource(R.string.duplicate), maxLines = 1) }
-            OutlinedButton(
-                onClick = { vm.deleteMulti() },
-                enabled = count >= 1,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text(stringResource(R.string.delete), maxLines = 1) }
-            Button(
-                onClick = { vm.stopMulti() },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp),
-            ) { Text(stringResource(R.string.multi_done), maxLines = 1) }
+        if (vm.multiCanUngroup) {
+            OutlinedButton(onClick = { vm.ungroupMulti() }, contentPadding = small, modifier = Modifier.height(38.dp)) {
+                Text(stringResource(R.string.ungroup_action), maxLines = 1)
+            }
+        }
+        OutlinedButton(
+            onClick = { vm.distributeMulti(true) },
+            enabled = count >= 3,
+            contentPadding = small,
+            modifier = Modifier.height(38.dp),
+        ) { Text(stringResource(R.string.distribute_h), maxLines = 1) }
+        OutlinedButton(
+            onClick = { vm.distributeMulti(false) },
+            enabled = count >= 3,
+            contentPadding = small,
+            modifier = Modifier.height(38.dp),
+        ) { Text(stringResource(R.string.distribute_v), maxLines = 1) }
+        OutlinedButton(
+            onClick = { vm.duplicateMulti() },
+            enabled = count >= 1,
+            contentPadding = small,
+            modifier = Modifier.height(38.dp),
+        ) { Text(stringResource(R.string.duplicate), maxLines = 1) }
+        OutlinedButton(
+            onClick = { vm.deleteMulti() },
+            enabled = count >= 1,
+            contentPadding = small,
+            modifier = Modifier.height(38.dp),
+        ) { Text(stringResource(R.string.delete), maxLines = 1) }
+        OutlinedButton(onClick = { vm.stopMulti() }, contentPadding = small, modifier = Modifier.height(38.dp)) {
+            Text(stringResource(R.string.multi_done), maxLines = 1)
         }
     }
 }

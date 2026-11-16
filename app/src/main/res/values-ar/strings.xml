@@ -186,4 +186,6 @@
     <string name="multi_done">تم</string>
     <string name="distribute_h">توزيع أفقي</string>
     <string name="distribute_v">توزيع رأسي</string>
+    <string name="group_action">دمج</string>
+    <string name="ungroup_action">فك الدمج</string>
 </resources>

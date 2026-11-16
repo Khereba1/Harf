@@ -436,6 +436,12 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val proj = vm.project
+                if (proj != null && vm.crop == null && !vm.picking && !drawState.value && !vm.multiMode) {
+                    // tapping a layer that belongs to a merged group picks the whole group
+                    val fg = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)
+                    val gh = Renderer.hitTest(proj, (down.position.x - fg.ox) / fg.scale, (down.position.y - fg.oy) / fg.scale, 24f / fg.scale)
+                    if (gh != null) vm.select(gh)
+                }
                 val handleLayer = if (proj != null && vm.crop == null && !vm.picking && !drawState.value && !Prefs.dragResize && !vm.multiMode) {
                     cornerHandleLayer(
                         proj, vm.selectedId,
@@ -528,7 +534,19 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         }
                         goM = ev.changes.any { it.pressed }
                     }
-                    if (travelledM <= slopM && hitM != null) vm.toggleMulti(hitM)
+                    if (travelledM <= slopM) {
+                        if (vm.groupMode) {
+                            // a group was picked by tapping it: tap elsewhere to let it go
+                            if (hitM == null) {
+                                vm.stopMulti()
+                            } else if (hitM !in vm.multi) {
+                                vm.stopMulti()
+                                vm.select(hitM)
+                            }
+                        } else if (hitM != null) {
+                            vm.toggleMulti(hitM)
+                        }
+                    }
                 } else if (proj != null && handleLayer != null) {
                     // dragging a corner handle: the size follows the finger's distance from the layer's center
                     val fr = fitDoc(size.width.toFloat(), size.height.toFloat(), proj.docW, proj.docH)

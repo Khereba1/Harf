@@ -189,4 +189,6 @@
     <string name="multi_done">Done</string>
     <string name="distribute_h">Spread horizontally</string>
     <string name="distribute_v">Spread vertically</string>
+    <string name="group_action">Merge</string>
+    <string name="ungroup_action">Unmerge</string>
 </resources>

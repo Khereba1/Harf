@@ -32,6 +32,8 @@ data class Layer(
     val opacity: Float = 1f,
     val locked: Boolean = false,
     val visible: Boolean = true,
+    // layers that were merged share the same non-zero group id (0 = not in a group)
+    val group: Long = 0L,
     // --- text ---
     val text: String = "",
     val fontKey: String = "sys:sans-serif",
@@ -109,6 +111,7 @@ fun layerToJson(t: Layer): JSONObject {
     o.put("opacity", t.opacity.toDouble())
     o.put("locked", t.locked)
     o.put("visible", t.visible)
+    o.put("group", t.group)
     o.put("text", t.text)
     o.put("fontKey", t.fontKey)
     o.put("color", t.color)
@@ -181,6 +184,7 @@ fun layerFromJson(o: JSONObject): Layer {
         opacity = o.f("opacity", d.opacity),
         locked = o.optBoolean("locked", d.locked),
         visible = o.optBoolean("visible", d.visible),
+        group = o.optLong("group", 0L),
         text = o.optString("text", d.text),
         fontKey = o.optString("fontKey", d.fontKey),
         color = o.optInt("color", d.color),
