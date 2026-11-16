@@ -414,6 +414,9 @@ fun ExportDialog(
 
 private class CanvasSize(val labelRes: Int, val w: Int, val h: Int)
 
+private const val MIN_CANVAS = 100
+private const val MAX_CANVAS = 4096
+
 private val CANVAS_SIZES = listOf(
     CanvasSize(R.string.size_square, 1080, 1080),
     CanvasSize(R.string.size_portrait, 1080, 1350),
@@ -425,6 +428,12 @@ private val CANVAS_SIZES = listOf(
 fun BlankCanvasDialog(onDismiss: () -> Unit, onCreate: (Int, Int, Int) -> Unit) {
     var index by remember { mutableIntStateOf(0) }
     var color by remember { mutableIntStateOf(0xFFFFFFFF.toInt()) }
+    var customW by remember { mutableStateOf("1080") }
+    var customH by remember { mutableStateOf("1080") }
+    val custom = index == CANVAS_SIZES.size
+    val cw = customW.toIntOrNull() ?: 0
+    val ch = customH.toIntOrNull() ?: 0
+    val customOk = cw in MIN_CANVAS..MAX_CANVAS && ch in MIN_CANVAS..MAX_CANVAS
     CardDialog(onDismiss = onDismiss) {
         Column(
             modifier = Modifier
@@ -445,6 +454,47 @@ fun BlankCanvasDialog(onDismiss: () -> Unit, onCreate: (Int, Int, Int) -> Unit) 
                     Text(stringResource(s.labelRes))
                 }
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { index = CANVAS_SIZES.size },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = custom, onClick = { index = CANVAS_SIZES.size })
+                Text(stringResource(R.string.size_custom))
+            }
+            if (custom) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = customW,
+                        onValueChange = { v -> customW = v.filter { ch -> ch.isDigit() }.take(4) },
+                        label = { Text(stringResource(R.string.size_width)) },
+                        singleLine = true,
+                        isError = cw !in MIN_CANVAS..MAX_CANVAS,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text("×")
+                    OutlinedTextField(
+                        value = customH,
+                        onValueChange = { v -> customH = v.filter { ch -> ch.isDigit() }.take(4) },
+                        label = { Text(stringResource(R.string.size_height)) },
+                        singleLine = true,
+                        isError = ch !in MIN_CANVAS..MAX_CANVAS,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Text(
+                    stringResource(R.string.size_custom_hint, MIN_CANVAS, MAX_CANVAS),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
                 stringResource(R.string.background_color),
                 style = MaterialTheme.typography.bodyMedium,
@@ -453,12 +503,31 @@ fun BlankCanvasDialog(onDismiss: () -> Unit, onCreate: (Int, Int, Int) -> Unit) 
             ColorRow(selected = color, onPick = { color = it })
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-                Button(onClick = {
-                    val s = CANVAS_SIZES[index]
-                    onCreate(s.w, s.h, color)
-                }) { Text(stringResource(R.string.create)) }
+                Button(
+                    enabled = !custom || customOk,
+                    onClick = {
+                        if (custom) {
+                            onCreate(cw, ch, color)
+                        } else {
+                            val s = CANVAS_SIZES[index]
+                            onCreate(s.w, s.h, color)
+                        }
+                    },
+                ) { Text(stringResource(R.string.create)) }
             }
         }
+    }
+}
+
+/** One equal-width language choice; the label never wraps. */
+@Composable
+private fun LangChip(label: String, modifier: Modifier, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
+    ) {
+        Text(label, maxLines = 1, softWrap = false)
     }
 }
 
@@ -483,10 +552,10 @@ fun SettingsDialog(context: Context, onDismiss: () -> Unit, onLanguage: (String)
         ) {
             Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.language_label), style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { onLanguage("system") }) { Text(stringResource(R.string.lang_system)) }
-                OutlinedButton(onClick = { onLanguage("ar") }) { Text(stringResource(R.string.lang_arabic)) }
-                OutlinedButton(onClick = { onLanguage("en") }) { Text(stringResource(R.string.lang_english)) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LangChip(stringResource(R.string.lang_system), Modifier.weight(1f)) { onLanguage("system") }
+                LangChip(stringResource(R.string.lang_arabic), Modifier.weight(1f)) { onLanguage("ar") }
+                LangChip(stringResource(R.string.lang_english), Modifier.weight(1f)) { onLanguage("en") }
             }
             Text(stringResource(R.string.about_title), style = MaterialTheme.typography.titleSmall)
             Text(stringResource(R.string.about_text), style = MaterialTheme.typography.bodySmall)
@@ -497,7 +566,7 @@ fun SettingsDialog(context: Context, onDismiss: () -> Unit, onLanguage: (String)
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
+                TextButton(onClick = {
                     showLog = !showLog
                     logText = AppLog.read()
                 }) { Text(stringResource(R.string.error_log)) }

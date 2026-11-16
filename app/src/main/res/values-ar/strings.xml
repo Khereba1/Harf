@@ -162,4 +162,8 @@
     <string name="style_copied">تم نسخ التنسيق</string>
     <string name="tab_font_ar">خطوط عربية</string>
     <string name="tab_font_en">خطوط إنجليزية</string>
+    <string name="size_custom">مقاس مخصص</string>
+    <string name="size_width">العرض (بكسل)</string>
+    <string name="size_height">الارتفاع (بكسل)</string>
+    <string name="size_custom_hint">من %1$d إلى %2$d بكسل لكل ضلع</string>
 </resources>

@@ -96,3 +96,4 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - edit16 (v2.7): align buttons (VM.alignSelected, AlignRow at top of LayoutPanel).
 - edit17 (v2.8): copy/paste style (VM.styleClip/copyStyle/pasteStyle, action strip buttons, ic_paste). Decision: NO two-flavor (offline/online) split.
 - edit18 (v2.9): fonts split into Arabic / English sub-tabs (FontStore.fontsFor, arabicPrefixes list must be extended when adding Arabic fonts), ~50 more fonts in the workflow download step.
+- edit19 (v3.0): custom canvas size (100..4096 px) in BlankCanvasDialog; Settings language chips equal width, no wrapping. PLANNED next (user request): drag-to-resize handles, snap to other layers' edges/centers, snap toggle + grid overlay with optional snapping, all switchable from Settings.

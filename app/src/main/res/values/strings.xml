@@ -165,4 +165,8 @@
     <string name="style_copied">Style copied</string>
     <string name="tab_font_ar">Arabic fonts</string>
     <string name="tab_font_en">English fonts</string>
+    <string name="size_custom">Custom size</string>
+    <string name="size_width">Width (px)</string>
+    <string name="size_height">Height (px)</string>
+    <string name="size_custom_hint">From %1$d to %2$d pixels for each side</string>
 </resources>
