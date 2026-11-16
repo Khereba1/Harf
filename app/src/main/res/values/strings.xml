@@ -191,4 +191,24 @@
     <string name="distribute_v">Spread vertically</string>
     <string name="group_action">Merge</string>
     <string name="ungroup_action">Unmerge</string>
+    <string name="group_solo_hint">Double-tap a layer of the group to edit it alone</string>
+    <string name="templates_button">Templates</string>
+    <string name="templates_title">Templates</string>
+    <string name="tpl_name_quote">Quote card</string>
+    <string name="tpl_name_story">Story</string>
+    <string name="tpl_name_sale">Sale poster</string>
+    <string name="tpl_name_invitation">Invitation</string>
+    <string name="tpl_name_thumb">Video thumbnail</string>
+    <string name="tpl_quote_text">Dream big,\nwork hard,\nstay humble</string>
+    <string name="tpl_quote_author">— Your name</string>
+    <string name="tpl_story_title">NEW\nARRIVALS</string>
+    <string name="tpl_story_sub">Swipe up</string>
+    <string name="tpl_sale_big">SALE</string>
+    <string name="tpl_sale_off">50% OFF</string>
+    <string name="tpl_sale_btn">Shop now</string>
+    <string name="tpl_inv_title">You\'re invited</string>
+    <string name="tpl_inv_name">Sara &amp; Omar</string>
+    <string name="tpl_inv_date">Friday, 7 PM</string>
+    <string name="tpl_thumb_main">THE BEST\nTRICK</string>
+    <string name="tpl_thumb_sub">Watch now</string>
 </resources>

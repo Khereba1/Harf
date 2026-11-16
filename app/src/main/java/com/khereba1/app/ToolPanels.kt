@@ -93,6 +93,7 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
         }
     } else if (selected.type == TYPE_SHAPE) {
         val labels = listOf(
+            stringResource(R.string.tab_styles),
             stringResource(R.string.tab_fill),
             stringResource(R.string.tab_layout),
             stringResource(R.string.tab_gradient),
@@ -101,10 +102,11 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
         )
         TabbedPanel(labels, shapeTab, { shapeTab = it }) { t ->
             when (t) {
-                0 -> ShapeFillPanel(vm, selected)
-                1 -> LayoutPanel(vm, selected, project.docW)
-                2 -> GradientPanel(vm, selected)
-                3 -> OutlinePanel(vm, selected)
+                0 -> ShapeStylesPanel(vm, selected)
+                1 -> ShapeFillPanel(vm, selected)
+                2 -> LayoutPanel(vm, selected, project.docW)
+                3 -> GradientPanel(vm, selected)
+                4 -> OutlinePanel(vm, selected)
                 else -> ShadowPanel(vm, selected)
             }
         }

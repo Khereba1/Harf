@@ -522,11 +522,58 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     var travelledM = 0f
                     var goM = true
                     vm.beginMultiMove()
+                    // grabbing a corner of the box around the picked layers scales them all
+                    val boxM = vm.multiBox()
+                    var cornerM = false
+                    var cxM = 0f
+                    var cyM = 0f
+                    var d0M = 1f
+                    if (boxM != null) {
+                        val reach = 26.dp.toPx()
+                        cxM = fm.ox + (boxM[0] + boxM[2]) / 2f * fm.scale
+                        cyM = fm.oy + (boxM[1] + boxM[3]) / 2f * fm.scale
+                        for (kx in 0..1) {
+                            for (ky in 0..1) {
+                                val px = fm.ox + boxM[kx * 2] * fm.scale
+                                val py = fm.oy + boxM[ky * 2 + 1] * fm.scale
+                                if (kotlin.math.hypot(down.position.x - px, down.position.y - py) < reach) cornerM = true
+                            }
+                        }
+                        d0M = kotlin.math.max(12f, kotlin.math.hypot(down.position.x - cxM, down.position.y - cyM))
+                        if (cornerM) down.consume()
+                    }
+                    var pinchedM = false
+                    var zoomAccM = 1f
+                    var rotAccM = 0f
+                    var zoomOnM = false
+                    var rotOnM = false
                     while (goM) {
                         val ev = awaitPointerEvent()
                         val panM = ev.calculatePan()
                         travelledM += panM.getDistance()
-                        if (hitM != null && hitM in vm.multi && travelledM > slopM) {
+                        if (ev.changes.size > 1) pinchedM = true
+                        if (cornerM) {
+                            val ch = ev.changes.firstOrNull { it.id == down.id } ?: ev.changes.first()
+                            if (ch.pressed) {
+                                vm.scaleMultiTo(kotlin.math.hypot(ch.position.x - cxM, ch.position.y - cyM) / d0M)
+                            }
+                            ch.consume()
+                        } else if (pinchedM) {
+                            val zoomM = ev.calculateZoom()
+                            val rotM = ev.calculateRotation()
+                            zoomAccM *= zoomM
+                            rotAccM += rotM
+                            if (!zoomOnM && kotlin.math.abs(zoomAccM - 1f) > 0.05f) zoomOnM = true
+                            if (!rotOnM && kotlin.math.abs(rotAccM) > 4f) rotOnM = true
+                            val zz = if (zoomOnM) zoomM else 1f
+                            val rr = if (rotOnM) rotM else 0f
+                            if (panM != Offset.Zero || zz != 1f || rr != 0f) {
+                                vm.transformMulti(panM.x / fm.scale, panM.y / fm.scale, zz, rr)
+                            }
+                            for (change in ev.changes) {
+                                if (change.positionChanged()) change.consume()
+                            }
+                        } else if (hitM != null && hitM in vm.multi && travelledM > slopM) {
                             vm.moveMulti(panM.x / fm.scale, panM.y / fm.scale)
                             for (change in ev.changes) {
                                 if (change.positionChanged()) change.consume()
@@ -534,14 +581,22 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                         }
                         goM = ev.changes.any { it.pressed }
                     }
-                    if (travelledM <= slopM) {
+                    if (travelledM <= slopM && !pinchedM && !cornerM) {
                         if (vm.groupMode) {
-                            // a group was picked by tapping it: tap elsewhere to let it go
+                            // a group was picked by tapping it: tap elsewhere to let it go,
+                            // double-tap one of its layers to edit just that layer
+                            val now = System.currentTimeMillis()
                             if (hitM == null) {
                                 vm.stopMulti()
                             } else if (hitM !in vm.multi) {
                                 vm.stopMulti()
                                 vm.select(hitM)
+                            } else if (hitM == vm.lastTapId && now - vm.lastTapAt < 350L) {
+                                vm.lastTapId = null
+                                vm.editMember(hitM)
+                            } else {
+                                vm.lastTapId = hitM
+                                vm.lastTapAt = now
                             }
                         } else if (hitM != null) {
                             vm.toggleMulti(hitM)
@@ -678,6 +733,22 @@ private fun EditorCanvas(vm: HarfViewModel, onEditRequest: () -> Unit, drawMode:
                     1f / f.scale, accent,
                     if (vm.multiMode) vm.multi else emptySet(),
                 )
+                val mb = if (vm.multiMode) vm.multiBox() else null
+                if (mb != null) {
+                    val bp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    bp.style = android.graphics.Paint.Style.STROKE
+                    bp.strokeWidth = 2f / f.scale
+                    bp.color = accent
+                    bp.pathEffect = android.graphics.DashPathEffect(floatArrayOf(10f / f.scale, 6f / f.scale), 0f)
+                    nc.drawRect(mb[0], mb[1], mb[2], mb[3], bp)
+                    val hp = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                    hp.color = accent
+                    for (kx in 0..1) {
+                        for (ky in 0..1) {
+                            nc.drawCircle(mb[kx * 2], mb[ky * 2 + 1], 7f / f.scale, hp)
+                        }
+                    }
+                }
                 if (Prefs.gridOn) {
                     val gl = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
                     gl.style = android.graphics.Paint.Style.STROKE

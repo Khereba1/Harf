@@ -188,4 +188,24 @@
     <string name="distribute_v">توزيع رأسي</string>
     <string name="group_action">دمج</string>
     <string name="ungroup_action">فك الدمج</string>
+    <string name="group_solo_hint">اضغط مرتين على عنصر في المجموعة لتعديله وحده</string>
+    <string name="templates_button">قوالب جاهزة</string>
+    <string name="templates_title">القوالب</string>
+    <string name="tpl_name_quote">بطاقة اقتباس</string>
+    <string name="tpl_name_story">ستوري</string>
+    <string name="tpl_name_sale">إعلان تخفيضات</string>
+    <string name="tpl_name_invitation">دعوة</string>
+    <string name="tpl_name_thumb">صورة مصغرة لفيديو</string>
+    <string name="tpl_quote_text">احلم كبير،\nواشتغل بجد،\nوخليك متواضع</string>
+    <string name="tpl_quote_author">— اسمك</string>
+    <string name="tpl_story_title">وصل\nحديثاً</string>
+    <string name="tpl_story_sub">اسحب لأعلى</string>
+    <string name="tpl_sale_big">تخفيضات</string>
+    <string name="tpl_sale_off">خصم 50%</string>
+    <string name="tpl_sale_btn">تسوق الآن</string>
+    <string name="tpl_inv_title">أنتم مدعوون</string>
+    <string name="tpl_inv_name">سارة وعمر</string>
+    <string name="tpl_inv_date">الجمعة، 7 مساءً</string>
+    <string name="tpl_thumb_main">أفضل\nحيلة</string>
+    <string name="tpl_thumb_sub">شاهد الآن</string>
 </resources>

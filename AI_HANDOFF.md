@@ -102,3 +102,10 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - edit22 (v3.3): Prefs object (snap, grid, gridSnap, gridDivs, dragResize; never name a function setX when a property X exists); smart snapping to other layers + grid (VM.snapAxis/halfExtents); grid overlay + checkerboard in EditorCanvas; action strip toggles (ic_magnet, ic_grid); double-tap-drag resize option (default off) + pinch dead-zone; background as bottom layer (Project.photoHidden/bgTransparent, LayersPanel BackgroundRow); settings sections.
 - edit23 (v3.4): multi-select (VM.multiMode/multi, moveMulti/alignMulti/distributeMulti/duplicateMulti/deleteMulti; MultiPanel; canvas branch; Layers panel 'Select multiple' chip).
 - edit24 (v3.5): merge/unmerge groups (Layer.group saved in project.json; VM.groupMulti/ungroupMulti/enterGroup/groupMode; tapping a grouped layer picks the whole group); multi tools also in the Layers tab (MultiActions).
+
+## edit25 (v3.6, versionCode 27)
+- Group transform: in multi mode, pinch/twist scale+rotate all picked layers about the union centre (`HarfViewModel.transformMulti`), a dashed union box with 4 corner handles is drawn (`multiBox`), dragging a corner scales (`scaleMultiTo`). Draw layers are baked with `bakeStrokes`.
+- Edit one member of a group: double-tap a member in group mode -> `editMember(id)` sets `soloId`; `select()` skips `enterGroup` for the solo layer; group stays merged.
+- Shape styles: `ShapeStyles.kt` (12 looks) + `ShapeStylesPanel`, new first tab "Styles" for shapes (tab indices shifted by 1).
+- Templates: `Templates.kt` (5 templates built in code, `TemplatesDialog` with `Renderer.thumbnail` previews), start-screen button, `vm.startTemplate`. Sample text is in strings (tpl_*).
+- NOT compiled/tested in sandbox.

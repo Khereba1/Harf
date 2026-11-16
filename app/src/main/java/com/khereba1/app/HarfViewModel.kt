@@ -580,6 +580,19 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         saveNow()
     }
 
+    /** Starts a new design from a built-in template (all layers stay editable). */
+    fun startTemplate(t: TemplateDef) {
+        userStarted = true
+        resetHistory()
+        photo = null
+        images = emptyMap()
+        project = Templates.build(t, getApplication<Application>())
+        selectedId = null
+        Session.clear(getApplication<Application>())
+        currentId = null
+        saveNow()
+    }
+
     fun closeProject() {
         cancelPick()
         saveJob?.cancel()
@@ -730,9 +743,26 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- editing ----------
 
+    /** A member of a merged group being edited alone (the group stays merged). */
+    var soloId: Long? = null
+
     fun select(id: Long?) {
+        if (id != null && id == soloId) {
+            selectedId = id
+            return
+        }
+        soloId = null
         selectedId = id
         if (id != null) enterGroup(id)
+    }
+
+    /** Double-tapping a layer of a picked group edits just that layer, without ungrouping. */
+    fun editMember(id: Long) {
+        soloId = id
+        multiMode = false
+        groupMode = false
+        multi = emptySet()
+        selectedId = id
     }
 
     fun notifyCanvasPick() {
@@ -912,8 +942,84 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
         groupMode = false
     }
 
+    // centre of the picked layers while they are moved, scaled or turned together
+    private var multiPivX = 0f
+    private var multiPivY = 0f
+    private var multiScaleLast = 1f
+
+    /** Union box (left, top, right, bottom) of the picked layers in document pixels, or null. */
+    fun multiBox(): FloatArray? {
+        val p = project ?: return null
+        val members = p.items.filter { it.id in multi && it.visible }
+        if (members.size < 2) return null
+        var minL = Float.MAX_VALUE
+        var maxR = -Float.MAX_VALUE
+        var minT = Float.MAX_VALUE
+        var maxB = -Float.MAX_VALUE
+        for (l in members) {
+            val half = halfExtents(l, p.docW)
+            val cx = Renderer.centerX(l)
+            val cy = Renderer.centerY(l)
+            if (cx - half.first < minL) minL = cx - half.first
+            if (cx + half.first > maxR) maxR = cx + half.first
+            if (cy - half.second < minT) minT = cy - half.second
+            if (cy + half.second > maxB) maxB = cy + half.second
+        }
+        return floatArrayOf(minL, minT, maxR, maxB)
+    }
+
     fun beginMultiMove() {
         coalesceKey = null
+        val b = multiBox()
+        if (b != null) {
+            multiPivX = (b[0] + b[2]) / 2f
+            multiPivY = (b[1] + b[3]) / 2f
+        }
+        multiScaleLast = 1f
+    }
+
+    /** Scales the picked layers so the total scale since [beginMultiMove] is [factor] (corner handle). */
+    fun scaleMultiTo(factor: Float) {
+        val z = if (multiScaleLast > 0f) factor / multiScaleLast else 1f
+        multiScaleLast = factor
+        transformMulti(0f, 0f, z, 0f)
+    }
+
+    /** Moves, scales and turns all picked layers together about their common centre. */
+    fun transformMulti(dx: Float, dy: Float, zoom: Float, deg: Float) {
+        val ids = multi
+        if (ids.isEmpty()) return
+        if (zoom < 0.02f || zoom > 50f) return
+        val ox = multiPivX
+        val oy = multiPivY
+        val nx = ox + dx
+        val ny = oy + dy
+        multiPivX = nx
+        multiPivY = ny
+        val a = Math.toRadians(deg.toDouble())
+        val c = kotlin.math.cos(a).toFloat() * zoom
+        val sn = kotlin.math.sin(a).toFloat() * zoom
+        edit("multixform", false) { p ->
+            p.copy(
+                items = p.items.map { l ->
+                    if (l.id !in ids || l.locked) {
+                        l
+                    } else if (l.type == TYPE_DRAW) {
+                        l.copy(strokes = bakeStrokes(l.strokes, ox, oy, nx, ny, zoom, deg))
+                    } else {
+                        val rx = l.cx - ox
+                        val ry = l.cy - oy
+                        val maxSize = if (l.type == TYPE_TEXT) p.docW * 0.9f else p.docW * 2f
+                        l.copy(
+                            cx = nx + rx * c - ry * sn,
+                            cy = ny + rx * sn + ry * c,
+                            size = (l.size * zoom).coerceIn(6f, maxSize),
+                            rotation = normalizeAngle(l.rotation + deg),
+                        )
+                    }
+                },
+            )
+        }
     }
 
     private fun shiftLayer(l: Layer, dx: Float, dy: Float): Layer =
@@ -926,6 +1032,8 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
     fun moveMulti(dx: Float, dy: Float) {
         val ids = multi
         if (ids.isEmpty()) return
+        multiPivX += dx
+        multiPivY += dy
         edit("multimove", false) { p ->
             p.copy(items = p.items.map { if (it.id in ids && !it.locked) shiftLayer(it, dx, dy) else it })
         }

@@ -742,6 +742,48 @@ fun StylesPanel(vm: HarfViewModel, item: Layer) {
     }
 }
 
+/** Ready-made looks for a shape, previewed on the shape itself. */
+@Composable
+fun ShapeStylesPanel(vm: HarfViewModel, item: Layer) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(88.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        items(ShapeStyles.all.size) { i ->
+            val def = ShapeStyles.all[i]
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF5A6070))
+                    .clickable { vm.editItem("shapestyle", true) { s -> def.transform(s) } },
+            ) {
+                drawIntoCanvas { c ->
+                    val nc = c.nativeCanvas
+                    val sample = def.transform(
+                        Layer(
+                            id = 0L, type = TYPE_SHAPE, cx = 0f, cy = 0f, size = 100f,
+                            shapeKind = item.shapeKind, aspect = item.aspect.coerceIn(0.4f, 1.6f),
+                            corner = item.corner,
+                        ),
+                    )
+                    val box = Renderer.boxOf(sample, 400)
+                    val s = kotlin.math.min(size.width * 0.62f / box.w, size.height * 0.62f / box.h)
+                    nc.save()
+                    nc.translate(size.width / 2f, size.height / 2f)
+                    nc.scale(s, s)
+                    Renderer.drawItem(nc, sample, 400, 400)
+                    nc.restore()
+                }
+            }
+        }
+    }
+}
+
 /** Pick a picture from the gallery to add as a layer. */
 @Composable
 fun ImageAddPanel(vm: HarfViewModel) {
@@ -1030,6 +1072,13 @@ fun MultiPanel(vm: HarfViewModel) {
             if (count == 0) stringResource(R.string.multi_hint) else stringResource(R.string.multi_count, count),
             style = MaterialTheme.typography.titleSmall,
         )
+        if (vm.groupMode) {
+            Text(
+                stringResource(R.string.group_solo_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (count >= 2) {
             AlignRow { h, v -> vm.alignMulti(h, v) }
         }
