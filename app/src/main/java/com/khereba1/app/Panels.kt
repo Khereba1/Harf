@@ -48,6 +48,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.items
 import kotlin.math.roundToInt
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 internal fun pct(v: Float): String = (v * 100f).roundToInt().toString() + "%"
 
@@ -385,31 +399,139 @@ fun SubTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         for (i in labels.indices) {
             val on = selected == i
-            Column(
+            Box(
                 modifier = Modifier
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (on) MaterialTheme.colorScheme.primary else Color(0xFF2A2F3A))
                     .clickable { onSelect(i) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = labels[i],
                     fontSize = 14.sp,
+                    maxLines = 1,
                     fontWeight = if (on) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal,
-                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box(
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .width(22.dp)
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent),
+                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 )
             }
+        }
+    }
+}
+
+/** One arrow key: a tap moves once, holding repeats. */
+@Composable
+private fun NudgeKey(glyph: String, onStep: () -> Unit, modifier: Modifier = Modifier) {
+    val scope = rememberCoroutineScope()
+    val step by rememberUpdatedState(onStep)
+    Box(
+        modifier = modifier
+            .size(56.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF2A2F3A))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        step()
+                        val job = scope.launch {
+                            delay(400)
+                            while (true) {
+                                step()
+                                delay(60)
+                            }
+                        }
+                        tryAwaitRelease()
+                        job.cancel()
+                    },
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** Arrow keys that move the selection by an exact number of pixels. */
+@Composable
+fun NudgePad(vm: HarfViewModel) {
+    var step by remember { mutableIntStateOf(10) }
+    var text by remember { mutableStateOf("10") }
+    val c = vm.selectionCenter()
+    val d = step.toFloat()
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (c != null) {
+            Text(
+                stringResource(R.string.nudge_pos, c.first.roundToInt(), c.second.roundToInt()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // the pad keeps the same physical directions in Arabic and English
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                NudgeKey("▲", { vm.nudge(0f, -d) })
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    NudgeKey("◀", { vm.nudge(-d, 0f) })
+                    NudgeKey("▼", { vm.nudge(0f, d) })
+                    NudgeKey("▶", { vm.nudge(d, 0f) })
+                }
+            }
+        }
+        Text(stringResource(R.string.nudge_step), style = MaterialTheme.typography.bodyMedium)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (n in listOf(1, 5, 10, 50)) {
+                FilterChip(
+                    selected = step == n,
+                    onClick = {
+                        step = n
+                        text = n.toString()
+                    },
+                    label = { Text(n.toString()) },
+                )
+            }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { v ->
+                    val t = v.filter { it.isDigit() }.take(4)
+                    text = t
+                    val n = t.toIntOrNull()
+                    if (n != null && n >= 1) step = n.coerceAtMost(2000)
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.width(84.dp),
+            )
+        }
+    }
+}
+
+/** Move tab: exact pixel steps plus quick alignment to the canvas. */
+@Composable
+fun MovePanel(vm: HarfViewModel, item: Layer) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        NudgePad(vm)
+        if (item.type != TYPE_DRAW) {
+            Text(stringResource(R.string.nudge_align), style = MaterialTheme.typography.bodyMedium)
+            AlignRow { h, v -> vm.alignSelected(h, v) }
         }
     }
 }
@@ -1079,6 +1201,7 @@ fun MultiPanel(vm: HarfViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        if (count >= 1) NudgePad(vm)
         if (count >= 2) {
             AlignRow { h, v -> vm.alignMulti(h, v) }
         }

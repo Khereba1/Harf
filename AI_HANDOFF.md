@@ -109,3 +109,8 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - Shape styles: `ShapeStyles.kt` (12 looks) + `ShapeStylesPanel`, new first tab "Styles" for shapes (tab indices shifted by 1).
 - Templates: `Templates.kt` (5 templates built in code, `TemplatesDialog` with `Renderer.thumbnail` previews), start-screen button, `vm.startTemplate`. Sample text is in strings (tpl_*).
 - NOT compiled/tested in sandbox.
+
+## edit26 (v3.7, versionCode 28)
+- New "Move" tab (first tab for text, shapes, images, draw layers) and a NudgePad in the multi/group panel: arrow keys with hold-to-repeat, step chips 1/5/10/50 + free number field, X/Y readout, and align-to-canvas row. VM: `nudge(dx,dy)`, `selectionCenter()`.
+- SubTabs restyled as pill-shaped tool buttons (selected = filled). Text sub-tab indices shifted by 1 (Move first).
+- NOT compiled/tested in sandbox.

@@ -208,4 +208,8 @@
     <string name="tpl_inv_date">الجمعة، 7 مساءً</string>
     <string name="tpl_thumb_main">أفضل\nحيلة</string>
     <string name="tpl_thumb_sub">شاهد الآن</string>
+    <string name="tab_move">تحريك</string>
+    <string name="nudge_step">المسافة (بكسل)</string>
+    <string name="nudge_pos">X %1$d   Y %2$d</string>
+    <string name="nudge_align">محاذاة للكانفس</string>
 </resources>

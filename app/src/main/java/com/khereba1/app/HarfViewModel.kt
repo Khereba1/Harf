@@ -1029,6 +1029,28 @@ class HarfViewModel(app: Application) : AndroidViewModel(app) {
             l.copy(cx = l.cx + dx, cy = l.cy + dy)
         }
 
+    /** Moves the selected layer (or all picked layers) by an exact number of document pixels. */
+    fun nudge(dx: Float, dy: Float) {
+        if (multiMode) {
+            moveMulti(dx, dy)
+            return
+        }
+        val id = selectedId ?: return
+        edit("nudge", false) { q ->
+            q.copy(items = q.items.map { if (it.id == id && !it.locked) shiftLayer(it, dx, dy) else it })
+        }
+    }
+
+    /** Centre of the selected layer (or of the picked layers) in document pixels, for the position readout. */
+    fun selectionCenter(): Pair<Float, Float>? {
+        if (multiMode) {
+            val b = multiBox() ?: return null
+            return Pair((b[0] + b[2]) / 2f, (b[1] + b[3]) / 2f)
+        }
+        val l = project?.items?.firstOrNull { it.id == selectedId } ?: return null
+        return Pair(Renderer.centerX(l), Renderer.centerY(l))
+    }
+
     fun moveMulti(dx: Float, dy: Float) {
         val ids = multi
         if (ids.isEmpty()) return

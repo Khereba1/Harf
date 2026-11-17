@@ -211,4 +211,8 @@
     <string name="tpl_inv_date">Friday, 7 PM</string>
     <string name="tpl_thumb_main">THE BEST\nTRICK</string>
     <string name="tpl_thumb_sub">Watch now</string>
+    <string name="tab_move">Move</string>
+    <string name="nudge_step">Step (pixels)</string>
+    <string name="nudge_pos">X %1$d   Y %2$d</string>
+    <string name="nudge_align">Align to canvas</string>
 </resources>

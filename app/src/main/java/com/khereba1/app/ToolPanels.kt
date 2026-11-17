@@ -67,6 +67,7 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
         CenterHint(stringResource(R.string.hint_empty))
     } else if (selected.type == TYPE_TEXT) {
         val labels = listOf(
+            stringResource(R.string.tab_move),
             stringResource(R.string.tab_font_ar),
             stringResource(R.string.tab_font_en),
             stringResource(R.string.tab_styles),
@@ -80,19 +81,21 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
         val colorLabel = stringResource(R.string.text_color)
         TabbedPanel(labels, textTab, { textTab = it }) { t ->
             when (t) {
-                0 -> FontPanel(vm, selected, true)
-                1 -> FontPanel(vm, selected, false)
-                2 -> StylesPanel(vm, selected)
-                3 -> ColorPanel(vm, selected, colorLabel)
-                4 -> LayoutPanel(vm, selected, project.docW)
-                5 -> OutlinePanel(vm, selected)
-                6 -> ShadowPanel(vm, selected)
-                7 -> BoxPanel(vm, selected)
+                0 -> MovePanel(vm, selected)
+                1 -> FontPanel(vm, selected, true)
+                2 -> FontPanel(vm, selected, false)
+                3 -> StylesPanel(vm, selected)
+                4 -> ColorPanel(vm, selected, colorLabel)
+                5 -> LayoutPanel(vm, selected, project.docW)
+                6 -> OutlinePanel(vm, selected)
+                7 -> ShadowPanel(vm, selected)
+                8 -> BoxPanel(vm, selected)
                 else -> GradientPanel(vm, selected)
             }
         }
     } else if (selected.type == TYPE_SHAPE) {
         val labels = listOf(
+            stringResource(R.string.tab_move),
             stringResource(R.string.tab_styles),
             stringResource(R.string.tab_fill),
             stringResource(R.string.tab_layout),
@@ -102,24 +105,30 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
         )
         TabbedPanel(labels, shapeTab, { shapeTab = it }) { t ->
             when (t) {
-                0 -> ShapeStylesPanel(vm, selected)
-                1 -> ShapeFillPanel(vm, selected)
-                2 -> LayoutPanel(vm, selected, project.docW)
-                3 -> GradientPanel(vm, selected)
-                4 -> OutlinePanel(vm, selected)
+                0 -> MovePanel(vm, selected)
+                1 -> ShapeStylesPanel(vm, selected)
+                2 -> ShapeFillPanel(vm, selected)
+                3 -> LayoutPanel(vm, selected, project.docW)
+                4 -> GradientPanel(vm, selected)
+                5 -> OutlinePanel(vm, selected)
                 else -> ShadowPanel(vm, selected)
             }
         }
     } else if (selected.type == TYPE_IMAGE) {
         val labels = listOf(
+            stringResource(R.string.tab_move),
             stringResource(R.string.tab_layout),
             stringResource(R.string.flip_label),
         )
         TabbedPanel(labels, imageTab, { imageTab = it }) { t ->
-            if (t == 0) LayoutPanel(vm, selected, project.docW) else ImageFlipPanel(vm, selected)
+            when (t) {
+                0 -> MovePanel(vm, selected)
+                1 -> LayoutPanel(vm, selected, project.docW)
+                else -> ImageFlipPanel(vm, selected)
+            }
         }
     } else {
-        CenterHint(stringResource(R.string.hint_draw_layer))
+        MovePanel(vm, selected)
     }
 }
 
