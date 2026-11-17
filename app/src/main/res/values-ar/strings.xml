@@ -212,4 +212,6 @@
     <string name="nudge_step">المسافة (بكسل)</string>
     <string name="nudge_pos">X %1$d   Y %2$d</string>
     <string name="nudge_align">محاذاة للكانفس</string>
+    <string name="tab_size">الحجم</string>
+    <string name="tab_spacing">التباعد</string>
 </resources>

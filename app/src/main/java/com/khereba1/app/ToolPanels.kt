@@ -72,7 +72,8 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
             stringResource(R.string.tab_font_en),
             stringResource(R.string.tab_styles),
             stringResource(R.string.tab_color),
-            stringResource(R.string.tab_layout),
+            stringResource(R.string.tab_size),
+            stringResource(R.string.tab_spacing),
             stringResource(R.string.tab_outline),
             stringResource(R.string.tab_shadow),
             stringResource(R.string.tab_box),
@@ -86,10 +87,11 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
                 2 -> FontPanel(vm, selected, false)
                 3 -> StylesPanel(vm, selected)
                 4 -> ColorPanel(vm, selected, colorLabel)
-                5 -> LayoutPanel(vm, selected, project.docW)
-                6 -> OutlinePanel(vm, selected)
-                7 -> ShadowPanel(vm, selected)
-                8 -> BoxPanel(vm, selected)
+                5 -> LayoutPanel(vm, selected, project.docW, 0)
+                6 -> LayoutPanel(vm, selected, project.docW, 1)
+                7 -> OutlinePanel(vm, selected)
+                8 -> ShadowPanel(vm, selected)
+                9 -> BoxPanel(vm, selected)
                 else -> GradientPanel(vm, selected)
             }
         }
@@ -98,7 +100,7 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
             stringResource(R.string.tab_move),
             stringResource(R.string.tab_styles),
             stringResource(R.string.tab_fill),
-            stringResource(R.string.tab_layout),
+            stringResource(R.string.tab_size),
             stringResource(R.string.tab_gradient),
             stringResource(R.string.tab_outline),
             stringResource(R.string.tab_shadow),
@@ -117,7 +119,7 @@ fun EditPanel(vm: HarfViewModel, project: Project, selected: Layer?) {
     } else if (selected.type == TYPE_IMAGE) {
         val labels = listOf(
             stringResource(R.string.tab_move),
-            stringResource(R.string.tab_layout),
+            stringResource(R.string.tab_size),
             stringResource(R.string.flip_label),
         )
         TabbedPanel(labels, imageTab, { imageTab = it }) { t ->

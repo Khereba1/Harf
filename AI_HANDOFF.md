@@ -114,3 +114,7 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 - New "Move" tab (first tab for text, shapes, images, draw layers) and a NudgePad in the multi/group panel: arrow keys with hold-to-repeat, step chips 1/5/10/50 + free number field, X/Y readout, and align-to-canvas row. VM: `nudge(dx,dy)`, `selectionCenter()`.
 - SubTabs restyled as pill-shaped tool buttons (selected = filled). Text sub-tab indices shifted by 1 (Move first).
 - NOT compiled/tested in sandbox.
+
+## edit27 (v3.8, versionCode 29)
+- `LayoutPanel(vm,item,docW,part)` split: part 0 = Size (size/aspect/corner/rotation/opacity), part 1 = Spacing (line/letter spacing, curve, alignment; text only). Text sub-tabs: Move, AR fonts, EN fonts, Styles, Color, Size, Spacing, Outline, Shadow, Box, Gradient. Shape/image "Layout" tab renamed "Size". AlignRow removed from LayoutPanel (it lives in the Move tab).
+- NOT compiled/tested in sandbox.

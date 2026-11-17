@@ -215,7 +215,7 @@ private fun AlignRow(onAlign: (Int?, Int?) -> Unit) {
 
 @Composable
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
+fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int, part: Int = 0) {
     val isShape = item.type != TYPE_TEXT
     val isImage = item.type == TYPE_IMAGE
     Column(
@@ -224,14 +224,13 @@ fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp),
     ) {
-        AlignRow { h, v -> vm.alignSelected(h, v) }
-        LabeledSlider(
+        if (part == 0) LabeledSlider(
             label = stringResource(R.string.size_label),
             value = item.size / docW,
             range = if (isShape) 0.03f..1.5f else 0.02f..0.4f,
             valueText = pct(item.size / docW),
         ) { v -> vm.editItem("size", false) { it.copy(size = v * docW) } }
-        if (isShape) {
+        if (isShape && part == 0) {
             if (!isImage) LabeledSlider(
                 label = stringResource(R.string.aspect_label),
                 value = item.aspect,
@@ -247,19 +246,19 @@ fun LayoutPanel(vm: HarfViewModel, item: Layer, docW: Int) {
                 ) { v -> vm.editItem("corner", false) { it.copy(corner = v) } }
             }
         }
-        LabeledSlider(
+        if (part == 0) LabeledSlider(
             label = stringResource(R.string.rotation_label),
             value = item.rotation,
             range = -180f..180f,
             valueText = item.rotation.roundToInt().toString() + "°",
         ) { v -> vm.editItem("rotation", false) { it.copy(rotation = v) } }
-        LabeledSlider(
+        if (part == 0) LabeledSlider(
             label = stringResource(R.string.opacity_label),
             value = item.opacity,
             range = 0f..1f,
             valueText = pct(item.opacity),
         ) { v -> vm.editItem("opacity", false) { it.copy(opacity = v) } }
-        if (!isShape) {
+        if (!isShape && part == 1) {
             LabeledSlider(
                 label = stringResource(R.string.line_spacing),
                 value = item.lineSpacing,
