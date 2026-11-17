@@ -214,4 +214,17 @@
     <string name="nudge_align">محاذاة للكانفس</string>
     <string name="tab_size">الحجم</string>
     <string name="tab_spacing">التباعد</string>
+    <string name="act_text">نص</string>
+    <string name="act_snap">مغناطيس</string>
+    <string name="act_grid">شبكة</string>
+    <string name="act_edit">تعديل</string>
+    <string name="act_copy">نسخ</string>
+    <string name="act_style">نسخ النمط</string>
+    <string name="act_paste">لصق النمط</string>
+    <string name="act_lock">قفل</string>
+    <string name="act_unlock">فتح</string>
+    <string name="act_front">للأمام</string>
+    <string name="act_back">للخلف</string>
+    <string name="act_delete">حذف</string>
+    <string name="templates_row_title">ابدأ من قالب جاهز</string>
 </resources>

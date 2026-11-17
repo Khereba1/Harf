@@ -118,3 +118,9 @@ Text Styles tab (TextStyles.kt, 12 presets with Renderer-drawn previews) and sna
 ## edit27 (v3.8, versionCode 29)
 - `LayoutPanel(vm,item,docW,part)` split: part 0 = Size (size/aspect/corner/rotation/opacity), part 1 = Spacing (line/letter spacing, curve, alignment; text only). Text sub-tabs: Move, AR fonts, EN fonts, Styles, Color, Size, Spacing, Outline, Shadow, Box, Gradient. Shape/image "Layout" tab renamed "Size". AlignRow removed from LayoutPanel (it lives in the Move tab).
 - NOT compiled/tested in sandbox.
+
+## edit28 (v3.9, versionCode 30)
+- Action strip under the canvas now uses `LabeledAction` (icon + short name, new `act_*` strings), strip height 58dp.
+- Start screen: the "Templates" button is replaced by `TemplatesRow` (LazyRow of thumbnails, tap = `vm.startTemplate`); start column scrolls. `TemplatesDialog` is now unused (kept).
+- Photo tab sub-tabs were already separate tools (Filters/Adjust/Rotate/Crop); only restyled as pills in edit26.
+- NOT compiled/tested in sandbox.

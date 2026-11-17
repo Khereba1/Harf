@@ -174,52 +174,52 @@ fun EditorScreen(vm: HarfViewModel) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(58.dp)
                 .background(HarfBg)
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-                    IconAction(
-                        R.drawable.ic_text_add, stringResource(R.string.add_text),
+                    LabeledAction(
+                        R.drawable.ic_text_add, stringResource(R.string.act_text),
                         { textDialog = DIALOG_ADD },
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    IconAction(
-                        R.drawable.ic_magnet, stringResource(R.string.toggle_snap),
+                    LabeledAction(
+                        R.drawable.ic_magnet, stringResource(R.string.act_snap),
                         { Prefs.updateSnap(!Prefs.snapOn) },
                         tint = if (Prefs.snapOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    IconAction(
-                        R.drawable.ic_grid, stringResource(R.string.toggle_grid),
+                    LabeledAction(
+                        R.drawable.ic_grid, stringResource(R.string.act_grid),
                         { Prefs.updateGrid(!Prefs.gridOn) },
                         tint = if (Prefs.gridOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (selected != null && !vm.multiMode) {
                         if (selected.type == TYPE_TEXT) {
-                            IconAction(R.drawable.ic_edit, stringResource(R.string.edit_text), { textDialog = DIALOG_EDIT })
+                            LabeledAction(R.drawable.ic_edit, stringResource(R.string.act_edit), { textDialog = DIALOG_EDIT })
                         }
-                        IconAction(R.drawable.ic_copy, stringResource(R.string.duplicate), { vm.duplicateSelected() })
+                        LabeledAction(R.drawable.ic_copy, stringResource(R.string.act_copy), { vm.duplicateSelected() })
                         if (selected.type == TYPE_TEXT || selected.type == TYPE_SHAPE) {
-                            IconAction(R.drawable.ic_brush, stringResource(R.string.copy_style), { vm.copyStyle() })
+                            LabeledAction(R.drawable.ic_brush, stringResource(R.string.act_style), { vm.copyStyle() })
                             val clip = vm.styleClip
                             if (clip != null && clip.type == selected.type) {
-                                IconAction(
-                                    R.drawable.ic_paste, stringResource(R.string.paste_style), { vm.pasteStyle() },
+                                LabeledAction(
+                                    R.drawable.ic_paste, stringResource(R.string.act_paste), { vm.pasteStyle() },
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                             }
                         }
-                        IconAction(
+                        LabeledAction(
                             if (selected.locked) R.drawable.ic_lock else R.drawable.ic_unlock,
-                            stringResource(if (selected.locked) R.string.unlock else R.string.lock),
+                            stringResource(if (selected.locked) R.string.act_unlock else R.string.act_lock),
                             { vm.toggleLock(selected.id) },
                             tint = if (selected.locked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         )
-                        IconAction(R.drawable.ic_up, stringResource(R.string.bring_forward), { vm.moveSelectedForward(true) })
-                        IconAction(R.drawable.ic_down, stringResource(R.string.send_backward), { vm.moveSelectedForward(false) })
-                        IconAction(R.drawable.ic_trash, stringResource(R.string.delete), { vm.deleteSelected() })
+                        LabeledAction(R.drawable.ic_up, stringResource(R.string.act_front), { vm.moveSelectedForward(true) })
+                        LabeledAction(R.drawable.ic_down, stringResource(R.string.act_back), { vm.moveSelectedForward(false) })
+                        LabeledAction(R.drawable.ic_trash, stringResource(R.string.act_delete), { vm.deleteSelected() })
                     }
         }
 

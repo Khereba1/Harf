@@ -59,6 +59,28 @@ fun IconAction(
     }
 }
 
+/** Action button with its name under the icon (used in the strip under the canvas). */
+@Composable
+fun LabeledAction(
+    @DrawableRes res: Int,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    val c = if (enabled) tint else tint.copy(alpha = 0.32f)
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        HIcon(res, label, tint = c, size = 22.dp)
+        Text(label, fontSize = 11.sp, maxLines = 1, color = c)
+    }
+}
+
 /** Bottom-bar tool: icon over a small label; the selected one is tinted with the accent. */
 @Composable
 fun ToolItem(

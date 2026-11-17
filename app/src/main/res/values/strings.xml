@@ -217,4 +217,17 @@
     <string name="nudge_align">Align to canvas</string>
     <string name="tab_size">Size</string>
     <string name="tab_spacing">Spacing</string>
+    <string name="act_text">Text</string>
+    <string name="act_snap">Snap</string>
+    <string name="act_grid">Grid</string>
+    <string name="act_edit">Edit</string>
+    <string name="act_copy">Copy</string>
+    <string name="act_style">Style</string>
+    <string name="act_paste">Paste</string>
+    <string name="act_lock">Lock</string>
+    <string name="act_unlock">Unlock</string>
+    <string name="act_front">Forward</string>
+    <string name="act_back">Back</string>
+    <string name="act_delete">Delete</string>
+    <string name="templates_row_title">Start from a template</string>
 </resources>
